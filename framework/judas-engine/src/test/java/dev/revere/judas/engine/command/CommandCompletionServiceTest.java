@@ -4,6 +4,7 @@ import dev.revere.judas.api.annotation.RootCommand;
 import dev.revere.judas.api.annotation.Flag;
 import dev.revere.judas.api.annotation.Arg;
 import dev.revere.judas.api.annotation.Switch;
+import dev.revere.judas.api.annotation.Permission;
 import dev.revere.judas.api.annotation.Subcommand;
 import dev.revere.judas.api.annotation.Suggestions;
 import dev.revere.judas.api.completion.CompletionAdapter;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class CommandCompletionServiceTest {
@@ -91,6 +93,51 @@ public class CommandCompletionServiceTest {
         assertEquals(Arrays.asList("ranked"), out);
     }
 
+    @Test
+    public void omitsSubcommandAliasesWithoutPermission() {
+        TestServices services = new TestServices();
+        CommandCompletionService completion = new CommandCompletionService(services);
+        CommandDescriptor descriptor = new CommandParser().parse(new MixedPermSubcommandsCommand());
+
+        List<String> out = completion.complete(descriptor, denyPermission("vip.sub"), new String[]{});
+
+        assertTrue(out.contains("public"));
+        assertFalse(out.contains("vip"));
+    }
+
+    @Test
+    public void returnsEmptyWhenRootPermissionDenied() {
+        TestServices services = new TestServices();
+        CommandCompletionService completion = new CommandCompletionService(services);
+        CommandDescriptor descriptor = new CommandParser().parse(new GatedRootCommand());
+
+        List<String> out = completion.complete(descriptor, denyPermission("root.use"), new String[]{});
+
+        assertTrue(out.isEmpty());
+    }
+
+    @Test
+    public void doesNotOfferParameterCompletionForForbiddenSubcommand() {
+        TestServices services = new TestServices();
+        CommandCompletionService completion = new CommandCompletionService(services);
+        CommandDescriptor descriptor = new CommandParser().parse(new MixedPermSubcommandsCommand());
+
+        List<String> out = completion.complete(descriptor, denyPermission("vip.sub"), new String[]{"vip", "x"});
+
+        assertTrue(out.isEmpty());
+    }
+
+    @Test
+    public void withholdsDefaultHandlerCompletionsWithoutHandlerPermission() {
+        TestServices services = new TestServices();
+        CommandCompletionService completion = new CommandCompletionService(services);
+        CommandDescriptor descriptor = new CommandParser().parse(new MethodRootWithPermCommand());
+
+        List<String> out = completion.complete(descriptor, denyPermission("method.root"), new String[]{"lit"});
+
+        assertTrue(out.isEmpty());
+    }
+
     private static CompletionAdapter allowAll() {
         return new CompletionAdapter() {
             @Override
@@ -103,6 +150,53 @@ public class CommandCompletionServiceTest {
                 return "console";
             }
         };
+    }
+
+    /**
+     * Denies exactly one permission node; all others (including {@code null}) are allowed.
+     */
+    private static CompletionAdapter denyPermission(final String denied) {
+        return new CompletionAdapter() {
+            @Override
+            public boolean hasPermission(String permission) {
+                return denied == null || !denied.equals(permission);
+            }
+
+            @Override
+            public Object getSender() {
+                return "player";
+            }
+        };
+    }
+
+    @RootCommand(names = {"arena"})
+    @Permission("root.use")
+    private static class GatedRootCommand extends BaseCommand {
+
+        @Subcommand(names = {"x"})
+        public void x(CommandContext sender) {
+        }
+    }
+
+    @RootCommand(names = {"mix"})
+    private static class MixedPermSubcommandsCommand extends BaseCommand {
+
+        @Subcommand(names = {"public"})
+        public void pub(CommandContext sender) {
+        }
+
+        @Subcommand(names = {"vip"})
+        @Permission("vip.sub")
+        public void vip(CommandContext sender, @Arg("id") @Suggestions(literals = {"a", "b"}) String id) {
+        }
+    }
+
+    private static class MethodRootWithPermCommand extends BaseCommand {
+
+        @RootCommand(names = {"lit"})
+        @Permission("method.root")
+        public void run(CommandContext sender, @Arg("mode") @Suggestions(literals = {"lite"}) String mode) {
+        }
     }
 
     @RootCommand(names = {"arena"})
