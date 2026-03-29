@@ -1,6 +1,6 @@
 package dev.revere.judas.runtime;
 
-import dev.revere.judas.api.annotation.Definition;
+import dev.revere.judas.api.annotation.RootCommand;
 import dev.revere.judas.api.annotation.Sender;
 import dev.revere.judas.api.annotation.Subcommand;
 import dev.revere.judas.model.command.BaseCommand;
@@ -58,11 +58,11 @@ public class CommandManagerSubcommandRegistrationTest {
     }
 
     private static class RootHolder extends BaseCommand {
-        @Definition(names = {"arena"})
+        @RootCommand(names = {"arena"})
         public void arenaRoot(@Sender Object sender) {
         }
 
-        @Definition(names = {"kit"})
+        @RootCommand(names = {"kit"})
         public void kitRoot(@Sender Object sender) {
         }
     }

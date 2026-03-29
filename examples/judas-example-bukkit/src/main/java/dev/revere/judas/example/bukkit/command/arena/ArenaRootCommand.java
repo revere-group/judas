@@ -1,8 +1,8 @@
 package dev.revere.judas.example.bukkit.command.arena;
 
-import dev.revere.judas.api.annotation.Definition;
+import dev.revere.judas.api.annotation.RootCommand;
 import dev.revere.judas.api.annotation.Description;
-import dev.revere.judas.api.annotation.Name;
+import dev.revere.judas.api.annotation.Arg;
 import dev.revere.judas.api.annotation.Sender;
 import dev.revere.judas.api.annotation.Subcommand;
 import dev.revere.judas.api.annotation.Suggestions;
@@ -19,7 +19,7 @@ import org.bukkit.entity.Player;
  * {@code /arena view <arena>} can also be used as {@code /av <arena>}.
  * If {@code av} conflicts with any already-registered root alias, Judas fails registration with a clear exception.
  */
-@Definition(names = {"arena", "a"}, generateHelp = true)
+@RootCommand(names = {"arena", "a"}, generateHelp = true)
 @Description("Arena management root command.")
 public final class ArenaRootCommand extends BaseCommand {
     private final ArenaService arenaService;
@@ -33,11 +33,11 @@ public final class ArenaRootCommand extends BaseCommand {
     }
 
     @Subcommand(names = {"view"}, parent = "arena")
-    @Definition(names = {"av"})
+    @RootCommand(names = {"av"})
     @Description("Shortcut root alias for /arena view <arena>.")
     public void viewShortcut(
             @Sender Player sender,
-            @Name("arena") @Suggestions(ArenaIdSuggestions.class) String arenaId
+            @Arg("arena") @Suggestions(ArenaIdSuggestions.class) String arenaId
     ) {
         Arena arena = this.arenaService.findById(arenaId);
         if (arena == null) {
