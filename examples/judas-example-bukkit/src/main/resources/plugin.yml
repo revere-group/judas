@@ -1,0 +1,5 @@
+name: JudasExample
+main: dev.revere.judas.example.bukkit.ExamplePlugin
+version: ${project.version}
+load: POSTWORLD
+authors: [ Revere ]

@@ -1,0 +1,43 @@
+### Build outputs ###
+target/
+build/
+out/
+dist/
+release/
+debug/
+
+### Maven wrapper ###
+!.mvn/wrapper/maven-wrapper.jar
+
+### IntelliJ / JetBrains ###
+.idea/
+*.iml
+*.ipr
+*.iws
+
+### Eclipse / STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+
+### NetBeans ###
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+### VS Code / Cursor workspace ###
+.vscode/
+
+### OS files ###
+.DS_Store
+Thumbs.db
+
+### Logs / temp ###
+*.log
+*.tmp
+*.temp
