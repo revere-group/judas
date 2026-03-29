@@ -2,32 +2,43 @@ package dev.revere.judas.runtime;
 
 import dev.revere.judas.api.completion.CompletionAdapter;
 import dev.revere.judas.api.context.CommandContext;
-import dev.revere.judas.engine.command.CommandCompletionService;
-import dev.revere.judas.engine.command.CommandDescriptorBuilder;
-import dev.revere.judas.engine.command.CommandParser;
-import dev.revere.judas.engine.command.CommandRouter;
-import dev.revere.judas.engine.command.SubcommandRegistrationCoordinator;
+import dev.revere.judas.engine.command.metadata.CommandDescriptorBuilder;
+import dev.revere.judas.engine.command.metadata.CommandParser;
+import dev.revere.judas.engine.command.metadata.SubcommandRegistrationCoordinator;
+import dev.revere.judas.engine.command.completion.CommandCompletionService;
+import dev.revere.judas.engine.command.routing.CommandRouter;
 import dev.revere.judas.engine.resolver.BuiltinParameterResolvers;
 import dev.revere.judas.engine.resolver.ParameterResolverRegistry;
 import dev.revere.judas.model.command.BaseCommand;
 import dev.revere.judas.model.command.CommandDescriptor;
 import dev.revere.judas.model.command.CommandMethodDescriptor;
+import dev.revere.judas.model.condition.CommandCondition;
+import dev.revere.judas.model.condition.ConditionRegistry;
 import dev.revere.judas.model.completion.SuggestionProvider;
 import dev.revere.judas.model.exception.DuplicateCommandException;
+import dev.revere.judas.model.middleware.CommandMiddleware;
 import dev.revere.judas.model.resolver.ParameterResolver;
 import dev.revere.judas.model.spi.CommandExecutionServices;
 import dev.revere.judas.model.spi.CommandHelpFormatter;
 import dev.revere.judas.model.spi.CommandMessageProvider;
+import dev.revere.judas.model.spi.CommandResponseHandler;
+import dev.revere.judas.model.spi.CooldownService;
+import dev.revere.judas.model.spi.JudasLogger;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 
 /**
- * Manages command registration and {@link ParameterResolver} wiring for a runtime.
+ * Runtime facade that owns registration, completion, dispatch, and extension wiring for one platform adapter.
+ *
+ * <p>It exposes the engine-facing {@link CommandExecutionServices} contract while keeping platform managers focused on
+ * publishing root descriptors into their own command system.
  */
 public abstract class CommandManager implements CommandExecutionServices {
     private final ParameterResolverRegistry resolverRegistry = new ParameterResolverRegistry();
@@ -40,6 +51,13 @@ public abstract class CommandManager implements CommandExecutionServices {
     private final CommandRouter router = new CommandRouter(this);
     private final CommandCompletionService completionService = new CommandCompletionService(this);
     private final CommandManagerOptions options;
+    private final ConditionRegistry conditionRegistry;
+    private final List<CommandMiddleware> middlewares;
+    private final JudasLogger logger;
+    private final CooldownService cooldownService;
+    private final Executor asyncExecutor;
+    private final List<CommandResponseHandler> responseHandlers;
+    private final RedundantSuggestionWarningAnalyzer redundantSuggestionWarningAnalyzer;
 
     protected CommandManager() {
         this(CommandManagerOptions.builder().build());
@@ -53,6 +71,14 @@ public abstract class CommandManager implements CommandExecutionServices {
             throw new IllegalArgumentException("options must not be null");
         }
         this.options = options;
+        this.conditionRegistry = options.getConditionRegistry();
+        this.middlewares = new ArrayList<>(options.getMiddlewares());
+        this.logger = options.getLogger();
+        this.cooldownService = options.getCooldownService();
+        this.asyncExecutor = options.getAsyncExecutor();
+        this.responseHandlers = new ArrayList<>(options.getResponseHandlers());
+        this.redundantSuggestionWarningAnalyzer = new RedundantSuggestionWarningAnalyzer(this.logger);
+        BuiltinCommandConditions.registerAll(this.conditionRegistry);
         BuiltinParameterResolvers.registerAll(this.resolverRegistry);
     }
 
@@ -223,6 +249,12 @@ public abstract class CommandManager implements CommandExecutionServices {
      * @param descriptor prepared root command descriptor
      */
     public void register(CommandDescriptor descriptor) {
+        this.redundantSuggestionWarningAnalyzer.analyze(descriptor, new RedundantSuggestionWarningAnalyzer.ResolverLookup() {
+            @Override
+            public <T> ParameterResolver<T> get(Class<T> type) {
+                return CommandManager.this.getResolver(type);
+            }
+        });
         for (String name : descriptor.getNames()) {
             String key = name.toLowerCase(Locale.ROOT);
             CommandDescriptor previous = this.commands.put(key, descriptor);
@@ -249,6 +281,31 @@ public abstract class CommandManager implements CommandExecutionServices {
      */
     public <T> void registerResolver(Class<T> type, ParameterResolver<T> resolver) {
         this.resolverRegistry.register(type, resolver);
+        this.logger.debug("Registered parameter resolver for type " + type.getName() + ".");
+    }
+
+    /**
+     * Registers a named condition implementation.
+     *
+     * @param key condition key used by {@code @Conditions}
+     * @param condition condition implementation
+     */
+    public void registerCondition(String key, CommandCondition condition) {
+        this.conditionRegistry.register(key, condition);
+        this.logger.debug("Registered condition '" + key + "'.");
+    }
+
+    /**
+     * Registers one middleware in execution order.
+     *
+     * @param middleware middleware to add
+     */
+    public void registerMiddleware(CommandMiddleware middleware) {
+        if (middleware == null) {
+            throw new IllegalArgumentException("middleware must not be null");
+        }
+        this.middlewares.add(middleware);
+        this.logger.debug("Registered middleware " + middleware.getClass().getName() + ".");
     }
 
     @Override
@@ -289,11 +346,58 @@ public abstract class CommandManager implements CommandExecutionServices {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ConditionRegistry getConditionRegistry() {
+        return this.conditionRegistry;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<CommandMiddleware> getMiddlewares() {
+        return Collections.unmodifiableList(this.middlewares);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public CooldownService getCooldownService() {
+        return this.cooldownService;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Executor getAsyncExecutor() {
+        return this.asyncExecutor;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<CommandResponseHandler> getResponseHandlers() {
+        return Collections.unmodifiableList(this.responseHandlers);
+    }
+
+    /**
      * Exposes registered root commands keyed by alias.
      *
      * @return immutable alias-to-descriptor map
      */
     public Map<String, CommandDescriptor> getCommands() {
         return Collections.unmodifiableMap(this.commands);
+    }
+
+    /**
+     * @return internal framework logger
+     */
+    protected JudasLogger getLogger() {
+        return this.logger;
     }
 }

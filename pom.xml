@@ -17,7 +17,9 @@
         <module>framework/judas-engine</module>
         <module>framework/judas-runtime</module>
         <module>platforms/judas-bukkit</module>
+        <module>platforms/judas-cli</module>
         <module>examples/judas-example-bukkit</module>
+        <module>examples/judas-example-cli</module>
     </modules>
 
     <properties>

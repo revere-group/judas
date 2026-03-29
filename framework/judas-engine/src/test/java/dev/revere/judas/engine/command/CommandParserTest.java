@@ -1,12 +1,19 @@
 package dev.revere.judas.engine.command;
 
 import dev.revere.judas.api.annotation.ConsumeRemaining;
+import dev.revere.judas.api.annotation.Conditions;
 import dev.revere.judas.api.annotation.Default;
 import dev.revere.judas.api.annotation.Definition;
+import dev.revere.judas.api.annotation.Length;
+import dev.revere.judas.api.annotation.Max;
+import dev.revere.judas.api.annotation.Min;
 import dev.revere.judas.api.annotation.Name;
 import dev.revere.judas.api.annotation.Optional;
 import dev.revere.judas.api.annotation.Permission;
+import dev.revere.judas.api.annotation.Range;
+import dev.revere.judas.api.annotation.Regex;
 import dev.revere.judas.api.annotation.Subcommand;
+import dev.revere.judas.engine.command.metadata.CommandParser;
 import dev.revere.judas.model.command.BaseCommand;
 import dev.revere.judas.model.command.CommandDescriptor;
 import dev.revere.judas.model.command.CommandMethodDescriptor;
@@ -99,6 +106,33 @@ public class CommandParserTest {
         assertTrue(descriptor.isGenerateHelp());
     }
 
+    @Test
+    public void parsesConditionsAcrossRootMethodAndParameter() {
+        CommandParser parser = new CommandParser();
+        CommandDescriptor descriptor = parser.parse(new ConditionHolder());
+
+        assertEquals(1, descriptor.getConditions().size());
+        assertEquals("root-only", descriptor.getConditions().get(0));
+        CommandMethodDescriptor method = descriptor.getSubcommands().get(0);
+        assertEquals("method-only", method.getConditions().get(0));
+        ParameterDescriptor parameter = method.getParameters().get(0);
+        assertEquals("param-only", parameter.getConditions().get(0));
+    }
+
+    @Test
+    public void parsesValidationAnnotationsIntoConditions() {
+        CommandParser parser = new CommandParser();
+        CommandDescriptor descriptor = parser.parse(new ValidationHolder());
+        ParameterDescriptor numeric = descriptor.getSubcommands().get(0).getParameters().get(0);
+        ParameterDescriptor text = descriptor.getSubcommands().get(0).getParameters().get(1);
+
+        assertTrue(numeric.getConditions().stream().anyMatch(s -> s.startsWith("range:")));
+        assertTrue(numeric.getConditions().stream().anyMatch(s -> s.startsWith("min:")));
+        assertTrue(numeric.getConditions().stream().anyMatch(s -> s.startsWith("max:")));
+        assertTrue(text.getConditions().stream().anyMatch(s -> s.startsWith("length:")));
+        assertTrue(text.getConditions().stream().anyMatch(s -> s.startsWith("regex:")));
+    }
+
     private CommandDescriptor findRoot(List<CommandDescriptor> roots, String alias) {
         for (CommandDescriptor root : roots) {
             for (String name : root.getNames()) {
@@ -171,6 +205,25 @@ public class CommandParserTest {
     private static class HelpEnabledHolder extends BaseCommand {
         @Subcommand(names = {"view"})
         public void view() {
+        }
+    }
+
+    @Definition(names = {"cond"})
+    @Conditions({"root-only"})
+    private static class ConditionHolder extends BaseCommand {
+        @Subcommand(names = {"check"})
+        @Conditions({"method-only"})
+        public void check(@Name("value") @Conditions({"param-only"}) String value) {
+        }
+    }
+
+    @Definition(names = {"validate"})
+    private static class ValidationHolder extends BaseCommand {
+        @Subcommand(names = {"test"})
+        public void test(
+                @Name("amount") @Range(min = 1, max = 10) @Min(1) @Max(10) int amount,
+                @Name("code") @Length(min = 3, max = 8) @Regex("^[a-z]+$") String code
+        ) {
         }
     }
 }

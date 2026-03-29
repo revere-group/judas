@@ -3,12 +3,21 @@ package dev.revere.judas.runtime;
 import dev.revere.judas.model.command.CommandBindingException;
 import dev.revere.judas.model.command.CommandDescriptor;
 import dev.revere.judas.model.command.CommandMethodDescriptor;
+import dev.revere.judas.model.condition.CommandConditionException;
 import dev.revere.judas.model.spi.CommandMessageProvider;
 
 /**
  * Default framework feedback messages.
  */
 public final class DefaultCommandMessageProvider implements CommandMessageProvider {
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String unknownRootCommand(String rootToken) {
+        return "Unknown command '" + rootToken + "'.";
+    }
 
     /**
      * {@inheritDoc}
@@ -35,6 +44,27 @@ public final class DefaultCommandMessageProvider implements CommandMessageProvid
                 ? ""
                 : " Available: " + availableSubcommands + ".";
         return "Unknown subcommand '" + token + "'." + suffix;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String cooldownActive(CommandDescriptor descriptor, CommandMethodDescriptor methodDescriptor, long remainingMillis) {
+        long seconds = Math.max(1L, (remainingMillis + 999L) / 1000L);
+        return "You must wait " + seconds + "s before using this again.";
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String conditionError(
+            CommandDescriptor descriptor,
+            CommandMethodDescriptor methodDescriptor,
+            CommandConditionException exception
+    ) {
+        return exception.getMessage();
     }
 
     /**

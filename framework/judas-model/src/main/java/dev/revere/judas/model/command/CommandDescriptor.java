@@ -14,6 +14,7 @@ public class CommandDescriptor {
     private final String description;
     private final boolean hidden;
     private final boolean generateHelp;
+    private final List<String> conditions;
     private final BaseCommand instance;
     private final List<CommandMethodDescriptor> subcommands = new ArrayList<>();
     private CommandMethodDescriptor defaultMethod;
@@ -26,7 +27,7 @@ public class CommandDescriptor {
      * @param instance holder instance owning this root command
      */
     public CommandDescriptor(String[] names, String permission, String description, boolean hidden, BaseCommand instance) {
-        this(names, permission, description, hidden, instance, false);
+        this(names, permission, description, hidden, instance, false, Collections.<String>emptyList());
     }
 
     /**
@@ -45,11 +46,33 @@ public class CommandDescriptor {
             BaseCommand instance,
             boolean generateHelp
     ) {
+        this(names, permission, description, hidden, instance, generateHelp, Collections.<String>emptyList());
+    }
+
+    /**
+     * @param names root aliases
+     * @param permission optional permission required for the root handler
+     * @param description optional root description
+     * @param hidden whether root should be hidden from help output
+     * @param instance holder instance owning this root command
+     * @param generateHelp whether framework-generated help should be enabled
+     * @param conditions root-level condition expressions
+     */
+    public CommandDescriptor(
+            String[] names,
+            String permission,
+            String description,
+            boolean hidden,
+            BaseCommand instance,
+            boolean generateHelp,
+            List<String> conditions
+    ) {
         this.names = Arrays.copyOf(names, names.length);
         this.permission = permission;
         this.description = description;
         this.hidden = hidden;
         this.generateHelp = generateHelp;
+        this.conditions = Collections.unmodifiableList(new ArrayList<>(conditions));
         this.instance = instance;
     }
 
@@ -93,6 +116,13 @@ public class CommandDescriptor {
      */
     public boolean isGenerateHelp() {
         return generateHelp;
+    }
+
+    /**
+     * @return immutable root-level condition expression list
+     */
+    public List<String> getConditions() {
+        return conditions;
     }
 
     /**

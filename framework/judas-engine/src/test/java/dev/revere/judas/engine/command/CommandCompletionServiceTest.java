@@ -8,12 +8,17 @@ import dev.revere.judas.api.annotation.Subcommand;
 import dev.revere.judas.api.annotation.Suggestions;
 import dev.revere.judas.api.completion.CompletionAdapter;
 import dev.revere.judas.api.context.CommandContext;
+import dev.revere.judas.engine.command.completion.CommandCompletionService;
+import dev.revere.judas.engine.command.metadata.CommandParser;
 import dev.revere.judas.engine.resolver.BuiltinParameterResolvers;
 import dev.revere.judas.engine.resolver.ParameterResolverRegistry;
 import dev.revere.judas.model.command.BaseCommand;
+import dev.revere.judas.model.command.CommandBindingException;
 import dev.revere.judas.model.command.CommandDescriptor;
+import dev.revere.judas.model.command.CommandMethodDescriptor;
 import dev.revere.judas.model.completion.CompletionContext;
 import dev.revere.judas.model.completion.SuggestionProvider;
+import dev.revere.judas.model.condition.CommandConditionException;
 import dev.revere.judas.model.resolver.ParameterResolver;
 import dev.revere.judas.model.spi.CommandHelpFormatter;
 import dev.revere.judas.model.spi.CommandMessageProvider;
@@ -76,6 +81,16 @@ public class CommandCompletionServiceTest {
         assertEquals(Arrays.asList("skywars"), optionValue);
     }
 
+    @Test
+    public void completesInlineLiteralSuggestions() {
+        TestServices services = new TestServices();
+        CommandCompletionService completion = new CommandCompletionService(services);
+        CommandDescriptor descriptor = new CommandParser().parse(new InlineSuggestionCommand());
+
+        List<String> out = completion.complete(descriptor, allowAll(), new String[]{"mode", "ra"});
+        assertEquals(Arrays.asList("ranked"), out);
+    }
+
     private static CompletionAdapter allowAll() {
         return new CompletionAdapter() {
             @Override
@@ -129,6 +144,13 @@ public class CommandCompletionServiceTest {
         }
     }
 
+    @Definition(names = {"show"})
+    private static class InlineSuggestionCommand extends BaseCommand {
+        @Subcommand(names = {"mode"})
+        public void mode(CommandContext sender, @Name("mode") @Suggestions(literals = {"normal", "ranked", "casual"}) String mode) {
+        }
+    }
+
     private static class TestServices implements CommandExecutionServices {
         private final ParameterResolverRegistry registry = new ParameterResolverRegistry();
         private final ConcurrentHashMap<Class<? extends SuggestionProvider>, SuggestionProvider> suggestionProviders =
@@ -161,6 +183,11 @@ public class CommandCompletionServiceTest {
         public CommandMessageProvider getMessageProvider() {
             return new CommandMessageProvider() {
                 @Override
+                public String unknownRootCommand(String rootToken) {
+                    return "";
+                }
+
+                @Override
                 public String noPermissionForRoot(CommandDescriptor descriptor) {
                     return "";
                 }
@@ -168,13 +195,31 @@ public class CommandCompletionServiceTest {
                 @Override
                 public String noPermissionForSubcommand(
                         CommandDescriptor descriptor,
-                        dev.revere.judas.model.command.CommandMethodDescriptor methodDescriptor
+                        CommandMethodDescriptor methodDescriptor
                 ) {
                     return "";
                 }
 
                 @Override
                 public String unknownSubcommand(CommandDescriptor descriptor, String token, String availableSubcommands) {
+                    return "";
+                }
+
+                @Override
+                public String cooldownActive(
+                        CommandDescriptor descriptor,
+                        CommandMethodDescriptor methodDescriptor,
+                        long remainingMillis
+                ) {
+                    return "";
+                }
+
+                @Override
+                public String conditionError(
+                        CommandDescriptor descriptor,
+                        CommandMethodDescriptor methodDescriptor,
+                        CommandConditionException exception
+                ) {
                     return "";
                 }
 
@@ -186,8 +231,8 @@ public class CommandCompletionServiceTest {
                 @Override
                 public String bindingError(
                         CommandDescriptor descriptor,
-                        dev.revere.judas.model.command.CommandMethodDescriptor methodDescriptor,
-                        dev.revere.judas.model.command.CommandBindingException exception
+                        CommandMethodDescriptor methodDescriptor,
+                        CommandBindingException exception
                 ) {
                     return "";
                 }
@@ -195,7 +240,7 @@ public class CommandCompletionServiceTest {
                 @Override
                 public String executionError(
                         CommandDescriptor descriptor,
-                        dev.revere.judas.model.command.CommandMethodDescriptor methodDescriptor,
+                        CommandMethodDescriptor methodDescriptor,
                         RuntimeException exception
                 ) {
                     return "";
@@ -219,7 +264,7 @@ public class CommandCompletionServiceTest {
                 @Override
                 public String renderSubcommandUsage(
                         CommandDescriptor descriptor,
-                        dev.revere.judas.model.command.CommandMethodDescriptor methodDescriptor
+                        CommandMethodDescriptor methodDescriptor
                 ) {
                     return "";
                 }

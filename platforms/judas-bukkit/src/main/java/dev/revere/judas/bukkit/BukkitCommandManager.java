@@ -2,6 +2,7 @@ package dev.revere.judas.bukkit;
 
 import dev.revere.judas.bukkit.command.BukkitCommand;
 import dev.revere.judas.bukkit.internal.BukkitCommandMapAccessor;
+import dev.revere.judas.bukkit.logging.BukkitJudasLogger;
 import dev.revere.judas.bukkit.resolver.BukkitParameterResolvers;
 import dev.revere.judas.model.command.CommandDescriptor;
 import dev.revere.judas.runtime.CommandManager;
@@ -21,13 +22,17 @@ public class BukkitCommandManager extends CommandManager {
     private final CommandMap commandMap;
 
     /**
+     * Creates a Bukkit manager with default platform logger and runtime defaults.
+     *
      * @param plugin owning Bukkit plugin instance
      */
     public BukkitCommandManager(Plugin plugin) {
-        this(plugin, CommandManagerOptions.builder().build());
+        this(plugin, CommandManagerOptions.builder().logger(new BukkitJudasLogger(plugin)).build());
     }
 
     /**
+     * Creates a Bukkit manager with caller-provided runtime options.
+     *
      * @param plugin owning Bukkit plugin instance
      * @param options runtime command framework options
      */

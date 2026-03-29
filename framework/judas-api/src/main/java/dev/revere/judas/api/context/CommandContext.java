@@ -28,6 +28,8 @@ public interface CommandContext {
     void sendMessage(CommandColor color, String message);
 
     /**
+     * Checks whether the sender is authorized for a permission node.
+     *
      * @param permission permission node to check
      * @return {@code true} if the sender has the permission
      */

@@ -8,13 +8,27 @@ import java.util.Map;
 /**
  * Registry of {@link ParameterResolver} instances keyed by type.
  */
-public class ParameterResolverRegistry {
+public final class ParameterResolverRegistry {
     private final Map<Class<?>, ParameterResolver<?>> resolvers = new HashMap<>();
 
+    /**
+     * Registers a typed parameter resolver.
+     *
+     * @param type resolved parameter type
+     * @param resolver resolver implementation
+     * @param <T> parameter type
+     */
     public <T> void register(Class<T> type, ParameterResolver<T> resolver) {
         this.resolvers.put(type, resolver);
     }
 
+    /**
+     * Resolves the best-matching resolver for a parameter type.
+     *
+     * @param type parameter type to resolve
+     * @param <T> parameter type
+     * @return registered resolver, enum resolver, assignable resolver, or {@code null}
+     */
     public <T> ParameterResolver<T> get(Class<T> type) {
         ParameterResolver<?> exact = this.resolvers.get(type);
         if (exact != null) {
