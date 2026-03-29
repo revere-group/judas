@@ -39,7 +39,7 @@ public final class SubcommandRegistrationCoordinator {
      * @param rootName explicit root alias to attach under
      * @param subcommand parsed subcommand descriptor
      */
-    public void registerSubcommand(String rootName, CommandMethodDescriptor subcommand) {
+    public void registerSub(String rootName, CommandMethodDescriptor subcommand) {
         CommandDescriptor root = this.requireRoot(rootName);
         this.addSubcommand(root, subcommand);
     }
@@ -50,7 +50,7 @@ public final class SubcommandRegistrationCoordinator {
      * @param rootName explicit root alias to attach under
      * @param holder subcommand holder
      */
-    public void registerSubcommands(String rootName, BaseCommand holder) {
+    public void registerSub(String rootName, BaseCommand holder) {
         CommandDescriptor root = this.requireRoot(rootName);
         for (CommandParser.ParsedSubcommand binding : this.parser.parseSubcommandBindings(holder)) {
             if (!isCompatibleWithExplicitRoot(rootName, binding.getParent())) {
@@ -67,7 +67,7 @@ public final class SubcommandRegistrationCoordinator {
      * @param holder subcommand holder
      * @param subcommandAliases aliases to register
      */
-    public void registerSubcommands(String rootName, BaseCommand holder, String... subcommandAliases) {
+    public void registerSub(String rootName, BaseCommand holder, String... subcommandAliases) {
         if (subcommandAliases == null || subcommandAliases.length == 0) {
             throw new IllegalArgumentException("At least one subcommand alias is required.");
         }
@@ -103,7 +103,7 @@ public final class SubcommandRegistrationCoordinator {
      *
      * @param holder subcommand holder
      */
-    public void registerSubcommands(BaseCommand holder) {
+    public void registerSub(BaseCommand holder) {
         for (CommandParser.ParsedSubcommand binding : this.parser.parseSubcommandBindings(holder)) {
             String parent = binding.getParent();
             if (parent == null || parent.trim().isEmpty()) {
@@ -112,17 +112,17 @@ public final class SubcommandRegistrationCoordinator {
                                 + " on " + holder.getClass().getName() + ". Add @Subcommand(parent = \"root\")."
                 );
             }
-            this.registerSubcommand(parent, binding.getDescriptor());
+            this.registerSub(parent, binding.getDescriptor());
         }
     }
 
     /**
      * Registers selected aliases from holder by reading each method's declared parent.
      *
-     * @param holder subcommand holder
-     * @param subcommandAliases aliases to register
+     * @param holder             subcommand holder
+     * @param subcommandAliases  one or more aliases from each method's {@code @Subcommand(names = ...)} (each still attaches under its {@code parent})
      */
-    public void registerSubcommands(BaseCommand holder, String... subcommandAliases) {
+    public void registerSub(BaseCommand holder, String... subcommandAliases) {
         if (subcommandAliases == null || subcommandAliases.length == 0) {
             throw new IllegalArgumentException("At least one subcommand alias is required.");
         }
@@ -142,7 +142,7 @@ public final class SubcommandRegistrationCoordinator {
                                 + " on " + holder.getClass().getName() + ". Add @Subcommand(parent = \"root\")."
                 );
             }
-            this.registerSubcommand(parent, binding.getDescriptor());
+            this.registerSub(parent, binding.getDescriptor());
         }
 
         if (matched.size() != requested.size()) {

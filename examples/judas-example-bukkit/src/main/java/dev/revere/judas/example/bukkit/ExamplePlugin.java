@@ -85,7 +85,7 @@ public class ExamplePlugin extends JavaPlugin {
         this.commandManager.register(new AnnotationShowcaseCommand());
 
         // Arena subcommands are registered from a separate holder under explicit root.
-        this.commandManager.registerSubcommands("arena", new ArenaSubcommands(this.arenaService));
+        this.commandManager.registerSub("arena", new ArenaSubcommands(this.arenaService));
     }
 
     private void validatePlayerSender(ConditionContext context) {

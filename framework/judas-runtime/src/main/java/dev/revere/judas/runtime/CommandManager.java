@@ -164,83 +164,55 @@ public abstract class CommandManager implements CommandExecutionServices {
     }
 
     /**
-     * Manually links a parsed subcommand descriptor under an already-registered root command.
+     * Attaches a parsed subcommand descriptor under an already registered root.
      *
-     * @param rootName root command alias to attach under
+     * @param rootName   root command alias to attach under
      * @param subcommand parsed subcommand descriptor
      */
-    public void registerSubcommand(String rootName, CommandMethodDescriptor subcommand) {
-        this.subcommandCoordinator.registerSubcommand(rootName, subcommand);
+    public void registerSub(String rootName, CommandMethodDescriptor subcommand) {
+        this.subcommandCoordinator.registerSub(rootName, subcommand);
     }
 
     /**
-     * Manually links one subcommand from a holder by name under an already-registered root command.
+     * Registers every compatible subcommand from a holder under one explicit root.
      *
      * @param rootName root command alias to attach under
-     * @param holder source holder containing subcommand methods
-     * @param subcommandAlias subcommand alias to attach
+     * @param holder   source holder containing subcommand methods
      */
-    public void registerSubcommand(String rootName, BaseCommand holder, String subcommandAlias) {
-        this.registerSubcommands(rootName, holder, subcommandAlias);
+    public void registerSub(String rootName, BaseCommand holder) {
+        this.subcommandCoordinator.registerSub(rootName, holder);
     }
 
     /**
-     * Registers all subcommands from a holder under a specific root.
+     * Registers only handlers whose {@code @Subcommand} aliases intersect {@code subcommandAliases},
+     * all under the given root (each method's {@code parent} must be compatible with {@code rootName}).
      *
-     * @param rootName root command alias to attach under
-     * @param holder source holder containing subcommand methods
+     * @param rootName            root command alias to attach under
+     * @param holder              source holder containing subcommand methods
+     * @param subcommandAliases   one or more aliases to match from {@code @Subcommand(names = ...)}
      */
-    public void registerSubcommands(String rootName, BaseCommand holder) {
-        this.subcommandCoordinator.registerSubcommands(rootName, holder);
+    public void registerSub(String rootName, BaseCommand holder, String... subcommandAliases) {
+        this.subcommandCoordinator.registerSub(rootName, holder, subcommandAliases);
     }
 
     /**
-     * Registers selected subcommands from a holder under a specific root.
+     * Registers all subcommands from a holder using each method's {@code @Subcommand(parent = "...")} to pick the root.
      *
-     * @param rootName root command alias to attach under
      * @param holder source holder containing subcommand methods
-     * @param subcommandAliases selected aliases to attach
      */
-    public void registerSubcommands(String rootName, BaseCommand holder, String... subcommandAliases) {
-        this.subcommandCoordinator.registerSubcommands(rootName, holder, subcommandAliases);
+    public void registerSub(BaseCommand holder) {
+        this.subcommandCoordinator.registerSub(holder);
     }
 
     /**
-     * Registers all subcommands from a holder by resolving each root from {@code @Subcommand(parent = "...")}.
+     * Registers only handlers whose subcommand aliases appear in {@code subcommandAliases}, resolving
+     * the root per method via {@code @Subcommand(parent = "...")}.
      *
-     * @param holder source holder containing subcommand methods
+     * @param holder              source holder containing subcommand methods
+     * @param subcommandAliases   one or more aliases to match (same overload handles one or many)
      */
-    public void registerSubcommands(BaseCommand holder) {
-        this.subcommandCoordinator.registerSubcommands(holder);
-    }
-
-    /**
-     * Registers selected subcommands from a holder by resolving root from {@code @Subcommand(parent = "...")}.
-     *
-     * @param holder source holder containing subcommand methods
-     * @param subcommandAliases selected aliases to attach
-     */
-    public void registerSubcommands(BaseCommand holder, String... subcommandAliases) {
-        this.subcommandCoordinator.registerSubcommands(holder, subcommandAliases);
-    }
-
-    /**
-     * Convenience singular form for selected subcommand + auto root resolution.
-     *
-     * @param holder source holder containing subcommand methods
-     * @param subcommandAlias selected alias to attach
-     */
-    public void registerSubcommand(BaseCommand holder, String subcommandAlias) {
-        this.registerSubcommands(holder, subcommandAlias);
-    }
-
-    /**
-     * Convenience singular form for registering all subcommands + auto root resolution.
-     *
-     * @param holder source holder containing subcommand methods
-     */
-    public void registerSubcommand(BaseCommand holder) {
-        this.registerSubcommands(holder);
+    public void registerSub(BaseCommand holder, String... subcommandAliases) {
+        this.subcommandCoordinator.registerSub(holder, subcommandAliases);
     }
 
     /**

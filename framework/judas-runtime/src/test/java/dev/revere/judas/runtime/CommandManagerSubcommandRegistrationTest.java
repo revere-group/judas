@@ -19,7 +19,7 @@ public class CommandManagerSubcommandRegistrationTest {
         TestManager manager = new TestManager();
         manager.register(new RootHolder());
 
-        manager.registerSubcommands("arena", new MixedParentSubcommands());
+        manager.registerSub("arena", new MixedParentSubcommands());
 
         CommandDescriptor arena = manager.getCommands().get("arena");
         assertEquals(1, arena.getSubcommands().size());
@@ -32,7 +32,7 @@ public class CommandManagerSubcommandRegistrationTest {
         manager.register(new RootHolder());
 
         try {
-            manager.registerSubcommand("arena", new MixedParentSubcommands(), "skipexample");
+            manager.registerSub("arena", new MixedParentSubcommands(), "skipexample");
             fail("Expected registration to fail due to parent mismatch.");
         } catch (SubcommandParentMismatchException expected) {
             assertTrue(expected.getMessage().contains("cannot be registered under root"));
@@ -44,7 +44,7 @@ public class CommandManagerSubcommandRegistrationTest {
         TestManager manager = new TestManager();
         manager.register(new RootHolder());
 
-        manager.registerSubcommand(new MixedParentSubcommands(), "skipexample");
+        manager.registerSub(new MixedParentSubcommands(), "skipexample");
 
         CommandDescriptor kit = manager.getCommands().get("kit");
         assertEquals(1, kit.getSubcommands().size());
