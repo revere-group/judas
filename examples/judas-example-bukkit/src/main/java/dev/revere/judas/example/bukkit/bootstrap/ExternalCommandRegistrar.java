@@ -25,7 +25,7 @@ public final class ExternalCommandRegistrar {
 
         // Auto-parent registration using @Subcommand(parent = "...").
         // The explicit alias here selects only the "where" subcommand from the holder.
-        manager.registerSubcommand(new ArenaExternalSubcommands(), "where");
+        manager.registerSub(new ArenaExternalSubcommands(), "where");
 
         // Register roots from a different bootstrap location.
         manager.register(new SupportCommandHolder());
