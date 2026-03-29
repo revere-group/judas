@@ -39,8 +39,9 @@ public final class CommandCompletionService {
      *
      * <p>Behavior summary:
      * <ul>
-     *     <li>Root and subcommand permissions are enforced before candidates are exposed.</li>
-     *     <li>Unknown first tokens are completed as subcommand aliases.</li>
+     *     <li>Root permission is enforced first; handler (default/sub) permission before any handler completions.</li>
+     *     <li>Subcommand name candidates omit aliases the sender cannot use (same for generated help context).</li>
+     *     <li>Unknown first tokens are completed only from permitted subcommand aliases.</li>
      *     <li>Known handlers delegate target selection to {@link CommandCompletionPlanner}.</li>
      *     <li>Final candidate lists are prefix-filtered case-insensitively.</li>
      * </ul>
@@ -62,17 +63,13 @@ public final class CommandCompletionService {
         }
 
         if (safe.length == 0) {
-            return this.filterPrefix(this.collectSubcommandNames(descriptor), "");
+            return this.filterPrefix(this.collectSubcommandNames(descriptor, adapter), "");
         }
 
         String head = safe[0];
-        CommandMethodDescriptor sub = this.findSubcommand(descriptor, head);
+        CommandMethodDescriptor sub = this.findSubcommand(descriptor, head, adapter);
         if (sub == null) {
-            return this.filterPrefix(this.collectSubcommandNames(descriptor), head);
-        }
-
-        if (sub.getPermission() != null && !adapter.hasPermission(sub.getPermission())) {
-            return Collections.emptyList();
+            return this.filterPrefix(this.collectSubcommandNames(descriptor, adapter), head);
         }
 
         String[] rest = Arrays.copyOfRange(safe, 1, safe.length);
@@ -80,14 +77,22 @@ public final class CommandCompletionService {
     }
 
     /**
-     * Resolves a subcommand by first-token alias match.
+     * Resolves a subcommand by first-token alias match for handlers the sender may use.
      *
      * @param descriptor root descriptor
-     * @param token first argument token
-     * @return matching subcommand descriptor, or {@code null} when unresolved
+     * @param token      first argument token
+     * @param adapter    permission source
+     * @return matching permitted subcommand descriptor, or {@code null} when unresolved or not permitted
      */
-    private CommandMethodDescriptor findSubcommand(CommandDescriptor descriptor, String token) {
+    private CommandMethodDescriptor findSubcommand(
+            CommandDescriptor descriptor,
+            String token,
+            CompletionAdapter adapter
+    ) {
         for (CommandMethodDescriptor sub : descriptor.getSubcommands()) {
+            if (!this.mayCompleteHandler(adapter, sub)) {
+                continue;
+            }
             for (String name : sub.getNames()) {
                 if (name.equalsIgnoreCase(token)) {
                     return sub;
@@ -98,20 +103,38 @@ public final class CommandCompletionService {
     }
 
     /**
-     * Collects visible subcommand aliases including generated help alias when enabled.
+     * Collects subcommand aliases the sender may invoke, plus generated help when enabled.
      *
      * @param descriptor root descriptor
+     * @param adapter    permission source
      * @return de-duplicated subcommand alias list in declaration order
      */
-    private List<String> collectSubcommandNames(CommandDescriptor descriptor) {
+    private List<String> collectSubcommandNames(CommandDescriptor descriptor, CompletionAdapter adapter) {
         LinkedHashSet<String> unique = new LinkedHashSet<>();
         for (CommandMethodDescriptor sub : descriptor.getSubcommands()) {
+            if (!this.mayCompleteHandler(adapter, sub)) {
+                continue;
+            }
             Collections.addAll(unique, sub.getNames());
         }
         if (descriptor.isGenerateHelp()) {
             unique.add(this.executionServices.getHelpSubcommandName());
         }
         return new ArrayList<>(unique);
+    }
+
+    /**
+     * @return {@code true} when the sender may receive completions for this handler (parameters, flags, etc.)
+     */
+    private boolean mayCompleteHandler(CompletionAdapter adapter, CommandMethodDescriptor handler) {
+        if (handler == null) {
+            return false;
+        }
+        String permission = handler.getPermission();
+        if (permission == null || permission.trim().isEmpty()) {
+            return true;
+        }
+        return adapter.hasPermission(permission);
     }
 
     /**
@@ -129,6 +152,9 @@ public final class CommandCompletionService {
             CompletionAdapter adapter,
             String[] args
     ) {
+        if (!this.mayCompleteHandler(adapter, handler)) {
+            return Collections.emptyList();
+        }
         CommandCompletionPlan plan = this.completionPlanner.plan(handler, args);
         if (plan.targetsOptionAliases()) {
             return this.filterPrefix(plan.getOptionAliases(), plan.getPartial());
