@@ -1,8 +1,8 @@
 package dev.revere.judas.example.bukkit.command.core;
 
-import dev.revere.judas.api.annotation.Definition;
+import dev.revere.judas.api.annotation.RootCommand;
 import dev.revere.judas.api.annotation.Description;
-import dev.revere.judas.api.annotation.Name;
+import dev.revere.judas.api.annotation.Arg;
 import dev.revere.judas.api.annotation.Optional;
 import dev.revere.judas.api.annotation.Sender;
 import dev.revere.judas.model.command.BaseCommand;
@@ -13,8 +13,8 @@ import org.bukkit.entity.Player;
  */
 @Description("Checks your ping or another player's ping.")
 public final class PingCommand extends BaseCommand {
-    @Definition(names = {"ping"}, generateHelp = true)
-    public void onPing(@Sender Player sender, @Name("target") @Optional Player target) {
+    @RootCommand(names = {"ping"}, generateHelp = true)
+    public void onPing(@Sender Player sender, @Arg("target") @Optional Player target) {
         Player resolved = target == null ? sender : target;
         int ping = resolvePing(resolved);
         if (ping < 0) {

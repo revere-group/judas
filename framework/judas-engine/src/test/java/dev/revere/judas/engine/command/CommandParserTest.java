@@ -2,12 +2,12 @@ package dev.revere.judas.engine.command;
 
 import dev.revere.judas.api.annotation.ConsumeRemaining;
 import dev.revere.judas.api.annotation.Conditions;
-import dev.revere.judas.api.annotation.Default;
-import dev.revere.judas.api.annotation.Definition;
+import dev.revere.judas.api.annotation.DefaultValue;
+import dev.revere.judas.api.annotation.RootCommand;
 import dev.revere.judas.api.annotation.Length;
 import dev.revere.judas.api.annotation.Max;
 import dev.revere.judas.api.annotation.Min;
-import dev.revere.judas.api.annotation.Name;
+import dev.revere.judas.api.annotation.Arg;
 import dev.revere.judas.api.annotation.Optional;
 import dev.revere.judas.api.annotation.Permission;
 import dev.revere.judas.api.annotation.Range;
@@ -78,7 +78,7 @@ public class CommandParserTest {
     }
 
     @Test
-    public void parsesSubcommandShortcutRootUsingDefinitionPlusSubcommand() {
+    public void parsesSubcommandShortcutRootUsingRootCommandPlusSubcommand() {
         CommandParser parser = new CommandParser();
         List<CommandDescriptor> roots = parser.parseAll(new ShortcutHolder());
 
@@ -100,7 +100,7 @@ public class CommandParserTest {
     }
 
     @Test
-    public void parsesGenerateHelpOnRootDefinition() {
+    public void parsesGenerateHelpOnRootCommand() {
         CommandParser parser = new CommandParser();
         CommandDescriptor descriptor = parser.parse(new HelpEnabledHolder());
         assertTrue(descriptor.isGenerateHelp());
@@ -144,27 +144,27 @@ public class CommandParserTest {
         throw new AssertionError("Root not found: " + alias);
     }
 
-    @Definition(names = {"sample", "s"})
+    @RootCommand(names = {"sample", "s"})
     @Permission("judas.sample")
     private static class ParserCommand extends BaseCommand {
 
         @Subcommand(names = {"set"})
         @Permission("judas.sample.set")
         public void onSet(
-                @Name("target") String target,
-                @Name("rank") @Optional @Default("Default") String rank,
-                @Name("message") @ConsumeRemaining String message
+                @Arg("target") String target,
+                @Arg("rank") @Optional @DefaultValue("Default") String rank,
+                @Arg("message") @ConsumeRemaining String message
         ) {
         }
     }
 
     private static class MultiRootHolder extends BaseCommand {
-        @Definition(names = {"ping"})
+        @RootCommand(names = {"ping"})
         @Permission("holder.ping")
         public void ping() {
         }
 
-        @Definition(names = {"arena"})
+        @RootCommand(names = {"arena"})
         @Permission("holder.arena")
         public void arena() {
         }
@@ -174,55 +174,55 @@ public class CommandParserTest {
         }
 
         @Subcommand(names = {"view"}, parent = "arena")
-        public void arenaView(@Name("id") String id) {
+        public void arenaView(@Arg("id") String id) {
         }
     }
 
     private static class ShortcutHolder extends BaseCommand {
-        @Definition(names = {"report"})
+        @RootCommand(names = {"report"})
         public void reportRoot() {
         }
 
         @Subcommand(names = {"status"}, parent = "report")
-        @Definition(names = {"rs"})
+        @RootCommand(names = {"rs"})
         @Permission("report.status")
         public void statusShortcut() {
         }
     }
 
     private static class ShortcutCollisionHolder extends BaseCommand {
-        @Definition(names = {"report"})
+        @RootCommand(names = {"report"})
         public void reportRoot() {
         }
 
         @Subcommand(names = {"status"}, parent = "report")
-        @Definition(names = {"report"})
+        @RootCommand(names = {"report"})
         public void invalidShortcut() {
         }
     }
 
-    @Definition(names = {"arena"}, generateHelp = true)
+    @RootCommand(names = {"arena"}, generateHelp = true)
     private static class HelpEnabledHolder extends BaseCommand {
         @Subcommand(names = {"view"})
         public void view() {
         }
     }
 
-    @Definition(names = {"cond"})
+    @RootCommand(names = {"cond"})
     @Conditions({"root-only"})
     private static class ConditionHolder extends BaseCommand {
         @Subcommand(names = {"check"})
         @Conditions({"method-only"})
-        public void check(@Name("value") @Conditions({"param-only"}) String value) {
+        public void check(@Arg("value") @Conditions({"param-only"}) String value) {
         }
     }
 
-    @Definition(names = {"validate"})
+    @RootCommand(names = {"validate"})
     private static class ValidationHolder extends BaseCommand {
         @Subcommand(names = {"test"})
         public void test(
-                @Name("amount") @Range(min = 1, max = 10) @Min(1) @Max(10) int amount,
-                @Name("code") @Length(min = 3, max = 8) @Regex("^[a-z]+$") String code
+                @Arg("amount") @Range(min = 1, max = 10) @Min(1) @Max(10) int amount,
+                @Arg("code") @Length(min = 3, max = 8) @Regex("^[a-z]+$") String code
         ) {
         }
     }

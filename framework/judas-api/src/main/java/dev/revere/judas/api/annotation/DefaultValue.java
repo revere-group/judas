@@ -6,14 +6,14 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Logical parameter name used for positional binding, defaults, and derived option aliases.
+ * Default string value used when an optional parameter is omitted.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.PARAMETER)
-public @interface Name {
+public @interface DefaultValue {
 
     /**
-     * @return logical parameter name
+     * @return default token passed to the parameter resolver
      */
     String value();
 }

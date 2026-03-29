@@ -2,9 +2,9 @@ package dev.revere.judas.example.bukkit.command.kit;
 
 import dev.revere.judas.api.annotation.Cooldown;
 import dev.revere.judas.api.annotation.CooldownScope;
-import dev.revere.judas.api.annotation.Definition;
+import dev.revere.judas.api.annotation.RootCommand;
 import dev.revere.judas.api.annotation.Description;
-import dev.revere.judas.api.annotation.Name;
+import dev.revere.judas.api.annotation.Arg;
 import dev.revere.judas.api.annotation.Optional;
 import dev.revere.judas.api.annotation.Sender;
 import dev.revere.judas.api.annotation.Subcommand;
@@ -22,7 +22,7 @@ import org.bukkit.entity.Player;
  *     <li>{@code String} parameter uses {@code @Suggestions(...)} provider.</li>
  * </ul>
  */
-@Definition(names = {"kit"}, generateHelp = true)
+@RootCommand(names = {"kit"}, generateHelp = true)
 @Description("Kit command demonstrating custom class resolver usage.")
 public final class KitCommand extends BaseCommand {
     private final KitService kitService;
@@ -39,7 +39,7 @@ public final class KitCommand extends BaseCommand {
     @Subcommand(names = {"getinventory"})
     public void getInventory(
             @Sender Player sender,
-            @Name("kit") Kit kit
+            @Arg("kit") Kit kit
     ) {
         sender.sendMessage("Kit " + kit.getDisplayName() + " preview: " + kit.getInventoryPreview());
     }
@@ -48,8 +48,8 @@ public final class KitCommand extends BaseCommand {
     @Cooldown(value = 3, scope = CooldownScope.SENDER)
     public void equip(
             @Sender Player sender,
-            @Name("kit") Kit kit,
-            @Name("target") @Optional Player target
+            @Arg("kit") Kit kit,
+            @Arg("target") @Optional Player target
     ) {
         Player resolved = target == null ? sender : target;
         resolved.sendMessage("You equipped kit " + kit.getDisplayName() + ".");
@@ -61,7 +61,7 @@ public final class KitCommand extends BaseCommand {
     @Subcommand(names = {"lookupraw"})
     public void lookupRaw(
             @Sender Player sender,
-            @Name("kitId") @Suggestions(KitIdSuggestions.class) String kitId
+            @Arg("kitId") @Suggestions(KitIdSuggestions.class) String kitId
     ) {
         Kit kit = this.kitService.findById(kitId);
         if (kit == null) {

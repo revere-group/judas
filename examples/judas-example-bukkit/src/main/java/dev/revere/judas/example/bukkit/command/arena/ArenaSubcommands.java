@@ -2,11 +2,11 @@ package dev.revere.judas.example.bukkit.command.arena;
 
 import dev.revere.judas.api.annotation.Conditions;
 import dev.revere.judas.api.annotation.ConsumeRemaining;
-import dev.revere.judas.api.annotation.Default;
+import dev.revere.judas.api.annotation.DefaultValue;
 import dev.revere.judas.api.annotation.Description;
 import dev.revere.judas.api.annotation.Flag;
-import dev.revere.judas.api.annotation.Name;
-import dev.revere.judas.api.annotation.Option;
+import dev.revere.judas.api.annotation.Arg;
+import dev.revere.judas.api.annotation.Switch;
 import dev.revere.judas.api.annotation.Optional;
 import dev.revere.judas.api.annotation.Permission;
 import dev.revere.judas.api.annotation.Sender;
@@ -34,13 +34,13 @@ public final class ArenaSubcommands extends BaseCommand {
 
     @Subcommand(names = {"create"})
     @Permission("judas.example.arena.create")
-    @Description("Creates an arena using options + defaults + consume remaining.")
+    @Description("Creates an arena using switches, defaults, and consume-remaining.")
     public void create(
             @Sender Player sender,
-            @Name("arena") @Option(names = {"--id"}) @Conditions({"argument-not-empty"}) String arenaId,
-            @Name("mode") @Option(names = {"--mode"}) @Optional @Default("casual") String mode,
-            @Name("silent") @Flag(names = {"-s", "--silent"}) boolean silent,
-            @Name("note") @ConsumeRemaining @Optional String note
+            @Arg("arena") @Switch(names = {"--id"}) @Conditions({"argument-not-empty"}) String arenaId,
+            @Arg("mode") @Switch(names = {"--mode"}) @Optional @DefaultValue("casual") String mode,
+            @Arg("silent") @Flag(names = {"-s", "--silent"}) boolean silent,
+            @Arg("note") @ConsumeRemaining @Optional String note
     ) {
         this.arenaService.save(new Arena(arenaId, mode, true));
         if (!silent) {

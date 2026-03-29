@@ -6,7 +6,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Declares boolean toggle aliases such as {@code -s} / {@code --silent}.
+ * Boolean switch aliases (presence toggles) such as {@code -s} / {@code --silent}. Non-boolean parameters
+ * that take a separate value token use {@link Switch}.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.PARAMETER)

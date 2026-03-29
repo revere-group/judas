@@ -4,11 +4,11 @@ import dev.revere.judas.api.annotation.ConsumeRemaining;
 import dev.revere.judas.api.annotation.Cooldown;
 import dev.revere.judas.api.annotation.CooldownScope;
 import dev.revere.judas.api.annotation.Conditions;
-import dev.revere.judas.api.annotation.Default;
-import dev.revere.judas.api.annotation.Definition;
+import dev.revere.judas.api.annotation.DefaultValue;
+import dev.revere.judas.api.annotation.RootCommand;
 import dev.revere.judas.api.annotation.Flag;
-import dev.revere.judas.api.annotation.Name;
-import dev.revere.judas.api.annotation.Option;
+import dev.revere.judas.api.annotation.Arg;
+import dev.revere.judas.api.annotation.Switch;
 import dev.revere.judas.api.annotation.Optional;
 import dev.revere.judas.api.annotation.Permission;
 import dev.revere.judas.api.annotation.Sender;
@@ -96,7 +96,7 @@ public class CommandRouterTest {
     }
 
     @Test
-    public void bindsOutOfOrderNamedOptionsAndFlags() {
+    public void bindsOutOfOrderNamedSwitchesAndFlags() {
         TestServices services = new TestServices();
         services.registerResolver(String[].class, context -> {
             String input = ArgumentTokenReader.requireNext(context);
@@ -259,7 +259,7 @@ public class CommandRouterTest {
         assertTrue(command.invoked);
     }
 
-    @Definition(names = {"disguise"})
+    @RootCommand(names = {"disguise"})
     @Permission("judas.use")
     private static class ExecutionCommand extends BaseCommand {
         private boolean invoked;
@@ -273,10 +273,10 @@ public class CommandRouterTest {
         @Permission("judas.use.set")
         public void onSet(
                 @Sender TestSender sender,
-                @Name("targets") String[] targets,
-                @Name("skin") @Option(names = {"--skin"}) String skin,
-                @Name("rank") @Option(names = {"--rank"}) @Optional @Default("Default") String rank,
-                @Name("silent") @Flag(names = {"-s", "--silent"}) boolean silent
+                @Arg("targets") String[] targets,
+                @Arg("skin") @Switch(names = {"--skin"}) String skin,
+                @Arg("rank") @Switch(names = {"--rank"}) @Optional @DefaultValue("Default") String rank,
+                @Arg("silent") @Flag(names = {"-s", "--silent"}) boolean silent
         ) {
             this.invoked = true;
             this.targets = targets;
@@ -286,19 +286,19 @@ public class CommandRouterTest {
         }
 
         @Subcommand(names = {"broadcast"})
-        public void onBroadcast(@Name("message") @ConsumeRemaining String message) {
+        public void onBroadcast(@Arg("message") @ConsumeRemaining String message) {
             this.broadcastMessage = message;
         }
     }
 
-    @Definition(names = {"arena"}, generateHelp = true)
+    @RootCommand(names = {"arena"}, generateHelp = true)
     private static class HelpEnabledCommand extends BaseCommand {
         @Subcommand(names = {"view"})
-        public void view(@Name("id") String id) {
+        public void view(@Arg("id") String id) {
         }
     }
 
-    @Definition(names = {"check"})
+    @RootCommand(names = {"check"})
     private static class ConditionedCommand extends BaseCommand {
         private boolean invoked;
 
@@ -309,7 +309,7 @@ public class CommandRouterTest {
         }
     }
 
-    @Definition(names = {"slow"})
+    @RootCommand(names = {"slow"})
     private static class CooldownCommand extends BaseCommand {
         private int invokedCount;
 
@@ -320,7 +320,7 @@ public class CommandRouterTest {
         }
     }
 
-    @Definition(names = {"response"})
+    @RootCommand(names = {"response"})
     private static class ResponseCommand extends BaseCommand {
         @Subcommand(names = {"ping"})
         public String ping() {
@@ -328,7 +328,7 @@ public class CommandRouterTest {
         }
     }
 
-    @Definition(names = {"async"})
+    @RootCommand(names = {"async"})
     private static class AsyncCommand extends BaseCommand {
         private boolean invoked;
 

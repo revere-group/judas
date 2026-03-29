@@ -2,13 +2,13 @@ package dev.revere.judas.engine.command.metadata;
 
 import dev.revere.judas.api.annotation.ConsumeRemaining;
 import dev.revere.judas.api.annotation.Conditions;
-import dev.revere.judas.api.annotation.Default;
+import dev.revere.judas.api.annotation.DefaultValue;
 import dev.revere.judas.api.annotation.Flag;
 import dev.revere.judas.api.annotation.Length;
 import dev.revere.judas.api.annotation.Max;
 import dev.revere.judas.api.annotation.Min;
-import dev.revere.judas.api.annotation.Name;
-import dev.revere.judas.api.annotation.Option;
+import dev.revere.judas.api.annotation.Arg;
+import dev.revere.judas.api.annotation.Switch;
 import dev.revere.judas.api.annotation.Optional;
 import dev.revere.judas.api.annotation.Range;
 import dev.revere.judas.api.annotation.Regex;
@@ -44,13 +44,13 @@ public final class MethodParameterIntrospector {
         List<ParameterDescriptor> result = new ArrayList<>(parameters.length);
 
         for (Parameter parameter : parameters) {
-            Name nameAnnotation = parameter.getAnnotation(Name.class);
+            Arg arg = parameter.getAnnotation(Arg.class);
             Optional optionalAnnotation = parameter.getAnnotation(Optional.class);
-            Default defaultAnnotation = parameter.getAnnotation(Default.class);
+            DefaultValue defaultValue = parameter.getAnnotation(DefaultValue.class);
             ConsumeRemaining consumeRemaining = parameter.getAnnotation(ConsumeRemaining.class);
             Sender sender = parameter.getAnnotation(Sender.class);
             Suggestions suggestions = parameter.getAnnotation(Suggestions.class);
-            Option option = parameter.getAnnotation(Option.class);
+            Switch valueSwitch = parameter.getAnnotation(Switch.class);
             Flag flag = parameter.getAnnotation(Flag.class);
             Conditions conditions = parameter.getAnnotation(Conditions.class);
             Range range = parameter.getAnnotation(Range.class);
@@ -65,26 +65,26 @@ public final class MethodParameterIntrospector {
                     sender,
                     consumeRemaining,
                     suggestions,
-                    option,
+                    valueSwitch,
                     flag
             );
             boolean isFlag = flag != null;
             ParameterSuggestionMetadata suggestionMetadata =
                     ParameterSuggestionMetadataResolver.resolve(method, parameter, suggestions);
 
-            boolean positionalAllowed = option == null || option.positional();
+            boolean positionalAllowed = valueSwitch == null || valueSwitch.positional();
             String[] optionNames = new String[0];
             if (sender == null && !CommandContext.class.isAssignableFrom(parameter.getType())) {
                 String[] explicitNames;
-                if (option != null) {
-                    explicitNames = option.names();
+                if (valueSwitch != null) {
+                    explicitNames = valueSwitch.names();
                 } else if (flag != null) {
                     explicitNames = flag.names();
                 } else {
                     explicitNames = new String[0];
                 }
                 optionNames = ParameterOptionNameResolver.resolve(
-                        nameAnnotation != null ? nameAnnotation.value() : parameter.getName(),
+                        arg != null ? arg.value() : parameter.getName(),
                         explicitNames
                 );
             }
@@ -99,10 +99,10 @@ public final class MethodParameterIntrospector {
             );
 
             result.add(new ParameterDescriptor(
-                    nameAnnotation != null ? nameAnnotation.value() : parameter.getName(),
+                    arg != null ? arg.value() : parameter.getName(),
                     parameter.getType(),
                     optionalAnnotation != null,
-                    defaultAnnotation != null ? defaultAnnotation.value() : null,
+                    defaultValue != null ? defaultValue.value() : null,
                     consumeRemaining != null,
                     sender != null,
                     suggestionMetadata.getProviderType(),

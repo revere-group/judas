@@ -1,7 +1,7 @@
 package dev.revere.judas.engine.command.metadata;
 
 import dev.revere.judas.api.annotation.Conditions;
-import dev.revere.judas.api.annotation.Definition;
+import dev.revere.judas.api.annotation.RootCommand;
 import dev.revere.judas.api.annotation.Description;
 import dev.revere.judas.api.annotation.Permission;
 import dev.revere.judas.api.annotation.Subcommand;
@@ -55,7 +55,7 @@ public class CommandParser {
      */
     public List<CommandDescriptor> parseAll(BaseCommand instance) {
         Class<?> clazz = instance.getClass();
-        Definition rootDefinition = clazz.getAnnotation(Definition.class);
+        RootCommand classRootCommand = clazz.getAnnotation(RootCommand.class);
         Permission classPermission = clazz.getAnnotation(Permission.class);
         Description classDescription = clazz.getAnnotation(Description.class);
         Conditions classConditions = clazz.getAnnotation(Conditions.class);
@@ -64,27 +64,27 @@ public class CommandParser {
         Map<String, CommandDescriptor> rootsByAlias = new LinkedHashMap<>();
         Set<String> primaryRootAliases = new LinkedHashSet<>();
 
-        if (rootDefinition != null) {
+        if (classRootCommand != null) {
             CommandDescriptor root = new CommandDescriptor(
-                    rootDefinition.names(),
+                    classRootCommand.names(),
                     classPermission != null ? classPermission.value() : null,
                     classDescription != null ? classDescription.value() : null,
-                    rootDefinition.hidden(),
+                    classRootCommand.hidden(),
                     instance,
-                    rootDefinition.generateHelp(),
+                    classRootCommand.generateHelp(),
                     CommandConditionExpressionNormalizer.normalize(classConditions)
             );
             this.addRoot(roots, rootsByAlias, root);
-            this.addPrimaryAliases(primaryRootAliases, rootDefinition.names());
+            this.addPrimaryAliases(primaryRootAliases, classRootCommand.names());
         }
 
         List<SubcommandBinding> subcommands = new ArrayList<>();
 
         for (Method method : clazz.getDeclaredMethods()) {
             Subcommand subcommand = method.getAnnotation(Subcommand.class);
-            Definition methodDefinition = method.getAnnotation(Definition.class);
+            RootCommand methodRootCommand = method.getAnnotation(RootCommand.class);
 
-            if (methodDefinition != null) {
+            if (methodRootCommand != null) {
                 if (subcommand != null) {
                     subcommands.add(new SubcommandBinding(
                             subcommand.parent(),
@@ -93,14 +93,14 @@ public class CommandParser {
 
                     this.ensureShortcutAliasDoesNotCollideWithPrimary(
                             primaryRootAliases,
-                            methodDefinition.names(),
+                            methodRootCommand.names(),
                             method,
                             clazz
                     );
 
                     CommandDescriptor shortcut = this.buildMethodRootDescriptor(
                             method,
-                            methodDefinition,
+                            methodRootCommand,
                             classPermission,
                             classDescription,
                             classConditions,
@@ -121,17 +121,17 @@ public class CommandParser {
                         : (classDescription != null ? classDescription.value() : null);
 
                 CommandDescriptor methodRoot = new CommandDescriptor(
-                        methodDefinition.names(),
+                        methodRootCommand.names(),
                         permission,
                         description,
-                        methodDefinition.hidden(),
+                        methodRootCommand.hidden(),
                         instance,
-                        methodDefinition.generateHelp(),
+                        methodRootCommand.generateHelp(),
                         CommandConditionExpressionNormalizer.normalize(classConditions)
                 );
-                methodRoot.setDefaultMethod(AnnotatedCommandHandlerParser.parseDefaultHandler(method, methodDefinition, clazz));
+                methodRoot.setDefaultMethod(AnnotatedCommandHandlerParser.parseDefaultHandler(method, methodRootCommand, clazz));
                 this.addRoot(roots, rootsByAlias, methodRoot);
-                this.addPrimaryAliases(primaryRootAliases, methodDefinition.names());
+                this.addPrimaryAliases(primaryRootAliases, methodRootCommand.names());
                 continue;
             }
 
@@ -146,7 +146,7 @@ public class CommandParser {
         if (roots.isEmpty()) {
             throw new IllegalArgumentException(
                     "No root command definition found on " + clazz.getName()
-                            + ". Add @Definition on the class or on at least one method."
+                            + ". Add @RootCommand on the class or on at least one method."
             );
         }
 
@@ -159,12 +159,12 @@ public class CommandParser {
     }
 
     /**
-     * Builds a root descriptor from one {@code @Definition}-annotated method.
+     * Builds a root descriptor from one {@code @RootCommand}-annotated method.
      *
      * <p>Method-level permission and description override class-level values when present.
      *
      * @param method root handler method
-     * @param definition method-level root definition
+     * @param rootCommand method-level root command metadata
      * @param classPermission class-level fallback permission
      * @param classDescription class-level fallback description
      * @param classConditions class-level root conditions
@@ -173,7 +173,7 @@ public class CommandParser {
      */
     private CommandDescriptor buildMethodRootDescriptor(
             Method method,
-            Definition definition,
+            RootCommand rootCommand,
             Permission classPermission,
             Description classDescription,
             Conditions classConditions,
@@ -190,15 +190,15 @@ public class CommandParser {
                 : (classDescription != null ? classDescription.value() : null);
 
         CommandDescriptor descriptor = new CommandDescriptor(
-                definition.names(),
+                rootCommand.names(),
                 permission,
                 description,
-                definition.hidden(),
+                rootCommand.hidden(),
                 instance,
-                definition.generateHelp(),
+                rootCommand.generateHelp(),
                 CommandConditionExpressionNormalizer.normalize(classConditions)
         );
-        descriptor.setDefaultMethod(AnnotatedCommandHandlerParser.parseDefaultHandler(method, definition, instance.getClass()));
+        descriptor.setDefaultMethod(AnnotatedCommandHandlerParser.parseDefaultHandler(method, rootCommand, instance.getClass()));
         return descriptor;
     }
 

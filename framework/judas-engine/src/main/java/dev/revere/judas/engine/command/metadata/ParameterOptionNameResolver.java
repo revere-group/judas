@@ -4,18 +4,18 @@ import java.util.LinkedHashSet;
 import java.util.Locale;
 
 /**
- * Builds implicit and explicit option aliases for option/flag parameters.
+ * Builds implicit and explicit aliases for valued {@code Switch} and boolean {@code Flag} parameters.
  */
 public final class ParameterOptionNameResolver {
     private ParameterOptionNameResolver() {
     }
 
     /**
-     * Builds the final option/flag alias array for one parameter.
+     * Builds the final switch/flag alias array for one parameter.
      *
      * @param parameterName logical parameter name
      * @param explicitNames aliases supplied by annotations
-     * @return normalized option alias array
+     * @return normalized switch/flag alias array
      */
     public static String[] resolve(String parameterName, String[] explicitNames) {
         LinkedHashSet<String> unique = new LinkedHashSet<>();
@@ -36,7 +36,7 @@ public final class ParameterOptionNameResolver {
     public static String normalize(String name) {
         String value = name == null ? "" : name.trim();
         if (value.isEmpty()) {
-            throw new IllegalArgumentException("Option/flag alias cannot be empty.");
+            throw new IllegalArgumentException("Switch/flag alias cannot be empty.");
         }
         if (value.startsWith("--") || value.startsWith("-")) {
             return value;

@@ -1,9 +1,9 @@
 package dev.revere.judas.engine.command;
 
-import dev.revere.judas.api.annotation.Definition;
+import dev.revere.judas.api.annotation.RootCommand;
 import dev.revere.judas.api.annotation.Flag;
-import dev.revere.judas.api.annotation.Name;
-import dev.revere.judas.api.annotation.Option;
+import dev.revere.judas.api.annotation.Arg;
+import dev.revere.judas.api.annotation.Switch;
 import dev.revere.judas.api.annotation.Subcommand;
 import dev.revere.judas.api.annotation.Suggestions;
 import dev.revere.judas.api.completion.CompletionAdapter;
@@ -69,16 +69,16 @@ public class CommandCompletionServiceTest {
     }
 
     @Test
-    public void completesOptionAliasesAndOptionValue() {
+    public void completesSwitchAliasesAndBoundValue() {
         TestServices services = new TestServices();
         CommandCompletionService completion = new CommandCompletionService(services);
-        CommandDescriptor descriptor = new CommandParser().parse(new OptionedArenaCommand());
+        CommandDescriptor descriptor = new CommandParser().parse(new SwitchArenaCommand());
 
-        List<String> optionAliases = completion.complete(descriptor, allowAll(), new String[]{"view", "--a"});
-        assertEquals(Arrays.asList("--arena"), optionAliases);
+        List<String> switchAliases = completion.complete(descriptor, allowAll(), new String[]{"view", "--a"});
+        assertEquals(Arrays.asList("--arena"), switchAliases);
 
-        List<String> optionValue = completion.complete(descriptor, allowAll(), new String[]{"view", "--arena", "sk"});
-        assertEquals(Arrays.asList("skywars"), optionValue);
+        List<String> boundValue = completion.complete(descriptor, allowAll(), new String[]{"view", "--arena", "sk"});
+        assertEquals(Arrays.asList("skywars"), boundValue);
     }
 
     @Test
@@ -105,7 +105,7 @@ public class CommandCompletionServiceTest {
         };
     }
 
-    @Definition(names = {"arena"})
+    @RootCommand(names = {"arena"})
     private static class SubOnlyCommand extends BaseCommand {
 
         @Subcommand(names = {"view"})
@@ -117,11 +117,11 @@ public class CommandCompletionServiceTest {
         }
     }
 
-    @Definition(names = {"arena"})
+    @RootCommand(names = {"arena"})
     private static class ArenaCommand extends BaseCommand {
 
         @Subcommand(names = {"view"})
-        public void view(CommandContext sender, @Name("id") @Suggestions(TestArenaIds.class) String arenaId) {
+        public void view(CommandContext sender, @Arg("id") @Suggestions(TestArenaIds.class) String arenaId) {
         }
     }
 
@@ -132,22 +132,22 @@ public class CommandCompletionServiceTest {
         }
     }
 
-    @Definition(names = {"arena"})
-    private static class OptionedArenaCommand extends BaseCommand {
+    @RootCommand(names = {"arena"})
+    private static class SwitchArenaCommand extends BaseCommand {
 
         @Subcommand(names = {"view"})
         public void view(
                 CommandContext sender,
-                @Name("arena") @Option(names = {"--arena"}) @Suggestions(TestArenaIds.class) String arenaId,
-                @Name("silent") @Flag(names = {"-s", "--silent"}) boolean silent
+                @Arg("arena") @Switch(names = {"--arena"}) @Suggestions(TestArenaIds.class) String arenaId,
+                @Arg("silent") @Flag(names = {"-s", "--silent"}) boolean silent
         ) {
         }
     }
 
-    @Definition(names = {"show"})
+    @RootCommand(names = {"show"})
     private static class InlineSuggestionCommand extends BaseCommand {
         @Subcommand(names = {"mode"})
-        public void mode(CommandContext sender, @Name("mode") @Suggestions(literals = {"normal", "ranked", "casual"}) String mode) {
+        public void mode(CommandContext sender, @Arg("mode") @Suggestions(literals = {"normal", "ranked", "casual"}) String mode) {
         }
     }
 

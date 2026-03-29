@@ -139,7 +139,7 @@ public abstract class CommandManager implements CommandExecutionServices {
     }
 
     /**
-     * Registers a command using {@link dev.revere.judas.api.annotation.Definition} metadata for names.
+     * Registers a command using {@link dev.revere.judas.api.annotation.RootCommand} metadata for names.
      *
      * @param command command holder/root definition object
      */

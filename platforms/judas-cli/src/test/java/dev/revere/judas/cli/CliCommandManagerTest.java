@@ -1,7 +1,7 @@
 package dev.revere.judas.cli;
 
-import dev.revere.judas.api.annotation.Definition;
-import dev.revere.judas.api.annotation.Name;
+import dev.revere.judas.api.annotation.RootCommand;
+import dev.revere.judas.api.annotation.Arg;
 import dev.revere.judas.api.annotation.Subcommand;
 import dev.revere.judas.model.command.BaseCommand;
 import org.junit.Test;
@@ -39,12 +39,12 @@ public class CliCommandManagerTest {
         assertEquals(1, sender.messages.size());
     }
 
-    @Definition(names = {"echo"})
+    @RootCommand(names = {"echo"})
     private static final class EchoCommand extends BaseCommand {
         private String lastMessage;
 
         @Subcommand(names = {"say"})
-        public void say(@Name("message") String message) {
+        public void say(@Arg("message") String message) {
             this.lastMessage = message;
         }
     }
