@@ -16,6 +16,7 @@
 
     <modules>
         <module>judas-bukkit</module>
+        <module>judas-cli</module>
     </modules>
 
 </project>

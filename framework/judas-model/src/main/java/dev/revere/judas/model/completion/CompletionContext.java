@@ -21,6 +21,8 @@ public final class CompletionContext {
     private final List<String> tokensAfterHandler;
 
     /**
+     * Creates immutable completion context for one parameter suggestion request.
+     *
      * @param sender platform sender
      * @param root root descriptor
      * @param handler active handler (root default or subcommand)
@@ -46,18 +48,30 @@ public final class CompletionContext {
                 : Collections.unmodifiableList(Arrays.asList(Arrays.copyOf(tokensAfterHandler, tokensAfterHandler.length)));
     }
 
+    /**
+     * @return platform sender object
+     */
     public Object getSender() {
         return this.sender;
     }
 
+    /**
+     * @return root descriptor for the active invocation
+     */
     public CommandDescriptor getRoot() {
         return this.root;
     }
 
+    /**
+     * @return handler descriptor currently being completed
+     */
     public CommandMethodDescriptor getHandler() {
         return this.handler;
     }
 
+    /**
+     * @return parameter descriptor currently targeted by completion
+     */
     public ParameterDescriptor getParameter() {
         return this.parameter;
     }

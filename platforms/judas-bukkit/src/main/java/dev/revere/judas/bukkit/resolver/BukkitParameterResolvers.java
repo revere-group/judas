@@ -24,18 +24,30 @@ public final class BukkitParameterResolvers {
     private BukkitParameterResolvers() {
     }
 
+    /**
+     * @return resolver for one online Bukkit {@link Player} by name or UUID
+     */
     public static ParameterResolver<Player> playerResolver() {
         return new PlayerResolver();
     }
 
+    /**
+     * @return resolver for comma/space separated players, including {@code *} and {@code @a}
+     */
     public static ParameterResolver<Player[]> playerArrayResolver() {
         return new PlayerArrayResolver();
     }
 
+    /**
+     * @return resolver for one {@link OfflinePlayer} by name or UUID
+     */
     public static ParameterResolver<OfflinePlayer> offlinePlayerResolver() {
         return new OfflinePlayerResolver();
     }
 
+    /**
+     * @return resolver for one Bukkit {@link World} by world name
+     */
     public static ParameterResolver<World> worldResolver() {
         return new WorldResolver();
     }

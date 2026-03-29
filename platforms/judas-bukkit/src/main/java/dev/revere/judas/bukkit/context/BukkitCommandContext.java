@@ -13,6 +13,8 @@ public class BukkitCommandContext implements CommandContext {
     private final String[] arguments;
 
     /**
+     * Creates a Bukkit-backed command context.
+     *
      * @param sender Bukkit sender
      * @param arguments raw command arguments
      */
@@ -52,6 +54,8 @@ public class BukkitCommandContext implements CommandContext {
     }
 
     /**
+     * Returns the wrapped Bukkit sender with the original platform type.
+     *
      * @return wrapped Bukkit sender
      */
     public CommandSender getBukkitSender() {

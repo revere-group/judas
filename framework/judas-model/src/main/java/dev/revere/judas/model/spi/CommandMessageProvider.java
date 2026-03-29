@@ -3,11 +3,17 @@ package dev.revere.judas.model.spi;
 import dev.revere.judas.model.command.CommandBindingException;
 import dev.revere.judas.model.command.CommandDescriptor;
 import dev.revere.judas.model.command.CommandMethodDescriptor;
+import dev.revere.judas.model.condition.CommandConditionException;
 
 /**
  * Produces framework-side feedback messages for command execution and routing outcomes.
  */
 public interface CommandMessageProvider {
+    /**
+     * @param rootToken unknown root command token
+     * @return unknown-root message
+     */
+    String unknownRootCommand(String rootToken);
 
     /**
      * @param descriptor root descriptor
@@ -29,6 +35,26 @@ public interface CommandMessageProvider {
      * @return unknown-subcommand message
      */
     String unknownSubcommand(CommandDescriptor descriptor, String token, String availableSubcommands);
+
+    /**
+     * @param descriptor root descriptor
+     * @param methodDescriptor target handler
+     * @param remainingMillis cooldown remaining duration
+     * @return cooldown-active message
+     */
+    String cooldownActive(CommandDescriptor descriptor, CommandMethodDescriptor methodDescriptor, long remainingMillis);
+
+    /**
+     * @param descriptor root descriptor
+     * @param methodDescriptor target handler
+     * @param exception validation/condition failure
+     * @return condition failure message
+     */
+    String conditionError(
+            CommandDescriptor descriptor,
+            CommandMethodDescriptor methodDescriptor,
+            CommandConditionException exception
+    );
 
     /**
      * @param descriptor root descriptor

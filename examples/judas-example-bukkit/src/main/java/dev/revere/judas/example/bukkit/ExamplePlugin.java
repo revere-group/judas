@@ -1,7 +1,22 @@
 package dev.revere.judas.example.bukkit;
 
 import dev.revere.judas.bukkit.BukkitCommandManager;
-import dev.revere.judas.example.bukkit.feature.arena.ArenaSubcommands;
+import dev.revere.judas.example.bukkit.bootstrap.ExternalCommandRegistrar;
+import dev.revere.judas.example.bukkit.command.arena.ArenaRootCommand;
+import dev.revere.judas.example.bukkit.command.arena.ArenaSubcommands;
+import dev.revere.judas.example.bukkit.command.core.PingCommand;
+import dev.revere.judas.example.bukkit.command.kit.KitCommand;
+import dev.revere.judas.example.bukkit.command.showcase.AnnotationShowcaseCommand;
+import dev.revere.judas.example.bukkit.completion.ArenaIdSuggestions;
+import dev.revere.judas.example.bukkit.completion.KitIdSuggestions;
+import dev.revere.judas.example.bukkit.model.Kit;
+import dev.revere.judas.example.bukkit.resolver.KitParameterResolver;
+import dev.revere.judas.example.bukkit.service.ArenaService;
+import dev.revere.judas.example.bukkit.service.KitService;
+import dev.revere.judas.model.condition.CommandConditionException;
+import dev.revere.judas.model.condition.ConditionContext;
+import dev.revere.judas.runtime.CommandManagerOptions;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -18,38 +33,70 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 public class ExamplePlugin extends JavaPlugin {
     private BukkitCommandManager commandManager;
+    private KitService kitService;
+    private ArenaService arenaService;
 
     @Override
     public void onEnable() {
-        // Core framework entry point for Bukkit.
-        this.commandManager = new BukkitCommandManager(this);
+        this.kitService = new KitService();
+        this.arenaService = new ArenaService();
 
-        // Scenario 1: Regular holder registration.
-        // Each holder can define one or multiple root commands through @Definition.
-        this.commandManager.register(new DisguiseCommand());
-        this.commandManager.register(new PingCommand());
-        this.commandManager.register(new ArenaCommand());
-        this.commandManager.register(new SupportCommandHolder());
+        // Core framework entry point for Bukkit with custom message styling and default help pipeline.
+        CommandManagerOptions options = CommandManagerOptions.builder()
+                .messageProvider(new BukkitExampleMessageProvider())
+                .build();
+        this.commandManager = new BukkitCommandManager(this, options);
 
-        // Scenario 2: Register all subcommands from ArenaSubcommands under "arena".
-        // Parentless + parent="arena" entries are included.
-        // Entries explicitly targeting a different parent (e.g. parent="kit") are skipped.
-        this.commandManager.registerSubcommands("arena", new ArenaSubcommands());
+        this.registerConditions();
+        this.registerResolvers();
+        this.registerSuggestionProviders();
+        this.registerCoreCommands();
 
-        // Scenario 3: Register only specific aliases under an explicit root.
-        // This throws if an alias does not exist on the holder or targets a different explicit parent.
-        // this.commandManager.registerSubcommands("arena", new ArenaSubcommands(), "create", "view");
-
-        // Scenario 4: Auto-resolve target root from @Subcommand(parent = "...").
-        // This is useful when holders are organized by feature package instead of root command.
-        // this.commandManager.registerSubcommand(new ArenaExternalSubcommands(), "where");
-        // this.commandManager.registerSubcommand(new ArenaExternalSubcommands());
-
-        // Scenario 5: Registration in a different class/module.
-        // The plugin exposes getCommandManager(), so other bootstrap code can wire commands too.
-        OutsideCommandRegistrar.register(this);
+        // Register from another class to demonstrate modular bootstrap.
+        ExternalCommandRegistrar.register(this);
     }
 
+    private void registerConditions() {
+        this.commandManager.registerCondition("player-only", this::validatePlayerSender);
+        this.commandManager.registerCondition("argument-not-empty", context -> {
+            Object value = context.getParameterValue();
+            if (!(value instanceof String) || ((String) value).trim().isEmpty()) {
+                throw new CommandConditionException("Value must not be empty.");
+            }
+        });
+    }
+
+    private void registerResolvers() {
+        // Resolver = typed parsing + typed completion for the Kit class.
+        // Commands with Kit params do not need @Suggestions.
+        this.commandManager.registerResolver(Kit.class, new KitParameterResolver(this.kitService));
+    }
+
+    private void registerSuggestionProviders() {
+        // Suggestion providers are mainly for String parameters where parsing stays String-based.
+        this.commandManager.registerSuggestionProvider(ArenaIdSuggestions.class, new ArenaIdSuggestions(this.arenaService));
+        this.commandManager.registerSuggestionProvider(KitIdSuggestions.class, new KitIdSuggestions(this.kitService));
+    }
+
+    private void registerCoreCommands() {
+        this.commandManager.register(new PingCommand());
+        this.commandManager.register(new KitCommand(this.kitService));
+        this.commandManager.register(new ArenaRootCommand(this.arenaService));
+        this.commandManager.register(new AnnotationShowcaseCommand());
+
+        // Arena subcommands are registered from a separate holder under explicit root.
+        this.commandManager.registerSubcommands("arena", new ArenaSubcommands(this.arenaService));
+    }
+
+    private void validatePlayerSender(ConditionContext context) {
+        if (!(context.getCommandContext().getSender() instanceof Player)) {
+            throw new CommandConditionException("Only players can use this command.");
+        }
+    }
+
+    /**
+     * @return initialized example command manager
+     */
     public BukkitCommandManager getCommandManager() {
         return this.commandManager;
     }

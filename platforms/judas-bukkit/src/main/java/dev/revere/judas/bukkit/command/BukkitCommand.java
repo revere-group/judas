@@ -19,6 +19,8 @@ public class BukkitCommand extends Command {
     private final CommandManager commandManager;
 
     /**
+     * Creates a Bukkit command wrapper around one parsed Judas root descriptor.
+     *
      * @param descriptor Judas root descriptor
      * @param commandManager owning runtime manager
      */

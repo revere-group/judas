@@ -9,6 +9,8 @@ import java.util.List;
 public interface SuggestionProvider {
 
     /**
+     * Produces completion candidates for the currently targeted parameter.
+     *
      * @param context completion context for the active handler and parameter
      * @return candidate strings (may be filtered by prefix by the engine)
      */
