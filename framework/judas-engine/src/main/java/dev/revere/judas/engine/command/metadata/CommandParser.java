@@ -1,10 +1,14 @@
 package dev.revere.judas.engine.command.metadata;
 
 import dev.revere.judas.api.annotation.Conditions;
+import dev.revere.judas.api.annotation.Arg;
 import dev.revere.judas.api.annotation.RootCommand;
+import dev.revere.judas.api.annotation.Shortcut;
 import dev.revere.judas.api.annotation.Description;
 import dev.revere.judas.api.annotation.Permission;
+import dev.revere.judas.api.annotation.Sender;
 import dev.revere.judas.api.annotation.Subcommand;
+import dev.revere.judas.api.context.CommandContext;
 import dev.revere.judas.model.command.BaseCommand;
 import dev.revere.judas.model.command.CommandDescriptor;
 import dev.revere.judas.model.command.CommandMethodDescriptor;
@@ -13,7 +17,10 @@ import dev.revere.judas.model.exception.SubcommandParentMismatchException;
 import dev.revere.judas.model.exception.SubcommandShortcutAliasConflictException;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -61,8 +68,10 @@ public class CommandParser {
         Conditions classConditions = clazz.getAnnotation(Conditions.class);
 
         List<CommandDescriptor> roots = new ArrayList<>();
+        List<CommandDescriptor> primaryRoots = new ArrayList<>();
         Map<String, CommandDescriptor> rootsByAlias = new LinkedHashMap<>();
         Set<String> primaryRootAliases = new LinkedHashSet<>();
+        Method[] declaredMethods = clazz.getDeclaredMethods();
 
         if (classRootCommand != null) {
             CommandDescriptor root = new CommandDescriptor(
@@ -74,15 +83,40 @@ public class CommandParser {
                     classRootCommand.generateHelp(),
                     CommandConditionExpressionNormalizer.normalize(classConditions)
             );
-            this.addRoot(roots, rootsByAlias, root);
+            this.addRoot(roots, rootsByAlias, root, clazz);
+            primaryRoots.add(root);
             this.addPrimaryAliases(primaryRootAliases, classRootCommand.names());
+            this.attachImplicitClassDefaultMethodIfPresent(root, classRootCommand, declaredMethods, clazz);
+        }
+
+        for (Method method : declaredMethods) {
+            RootCommand methodRootCommand = method.getAnnotation(RootCommand.class);
+            Subcommand subcommand = method.getAnnotation(Subcommand.class);
+            if (methodRootCommand != null && subcommand == null) {
+                this.addPrimaryAliases(primaryRootAliases, methodRootCommand.names());
+            }
         }
 
         List<SubcommandBinding> subcommands = new ArrayList<>();
 
-        for (Method method : clazz.getDeclaredMethods()) {
+        for (Method method : declaredMethods) {
             Subcommand subcommand = method.getAnnotation(Subcommand.class);
             RootCommand methodRootCommand = method.getAnnotation(RootCommand.class);
+            Shortcut shortcut = method.getAnnotation(Shortcut.class);
+
+            if (shortcut != null && methodRootCommand != null) {
+                throw new IllegalArgumentException(
+                        "Method " + method.getName() + " in " + clazz.getName()
+                                + " cannot declare both @RootCommand and @Shortcut."
+                );
+            }
+
+            if (shortcut != null && subcommand == null) {
+                throw new IllegalArgumentException(
+                        "Method " + method.getName() + " in " + clazz.getName()
+                                + " declares @Shortcut but is missing @Subcommand."
+                );
+            }
 
             if (methodRootCommand != null) {
                 if (subcommand != null) {
@@ -98,15 +132,17 @@ public class CommandParser {
                             clazz
                     );
 
-                    CommandDescriptor shortcut = this.buildMethodRootDescriptor(
+                    CommandDescriptor shortcutRoot = this.buildMethodRootDescriptor(
                             method,
-                            methodRootCommand,
+                            methodRootCommand.names(),
+                            methodRootCommand.hidden(),
+                            methodRootCommand.generateHelp(),
                             classPermission,
                             classDescription,
                             classConditions,
                             instance
                     );
-                    this.addRoot(roots, rootsByAlias, shortcut);
+                    this.addRoot(roots, rootsByAlias, shortcutRoot, clazz);
                     continue;
                 }
 
@@ -130,8 +166,36 @@ public class CommandParser {
                         CommandConditionExpressionNormalizer.normalize(classConditions)
                 );
                 methodRoot.setDefaultMethod(AnnotatedCommandHandlerParser.parseDefaultHandler(method, methodRootCommand, clazz));
-                this.addRoot(roots, rootsByAlias, methodRoot);
+                this.addRoot(roots, rootsByAlias, methodRoot, clazz);
+                primaryRoots.add(methodRoot);
                 this.addPrimaryAliases(primaryRootAliases, methodRootCommand.names());
+                continue;
+            }
+
+            if (subcommand != null && shortcut != null) {
+                subcommands.add(new SubcommandBinding(
+                        subcommand.parent(),
+                        AnnotatedCommandHandlerParser.parseSubcommand(method, subcommand, clazz)
+                ));
+
+                this.ensureShortcutAliasDoesNotCollideWithPrimary(
+                        primaryRootAliases,
+                        shortcut.names(),
+                        method,
+                        clazz
+                );
+
+                CommandDescriptor shortcutRoot = this.buildMethodRootDescriptor(
+                        method,
+                        shortcut.names(),
+                        shortcut.hidden(),
+                        false,
+                        classPermission,
+                        classDescription,
+                        classConditions,
+                        instance
+                );
+                this.addRoot(roots, rootsByAlias, shortcutRoot, clazz);
                 continue;
             }
 
@@ -151,7 +215,7 @@ public class CommandParser {
         }
 
         for (SubcommandBinding binding : subcommands) {
-            CommandDescriptor owner = this.resolveOwner(binding.parent, roots, rootsByAlias, clazz);
+            CommandDescriptor owner = this.resolveOwner(binding.parent, roots, rootsByAlias, primaryRoots, clazz);
             owner.addSubcommand(binding.descriptor);
         }
 
@@ -164,7 +228,9 @@ public class CommandParser {
      * <p>Method-level permission and description override class-level values when present.
      *
      * @param method root handler method
-     * @param rootCommand method-level root command metadata
+     * @param names root aliases to expose
+     * @param hidden root visibility
+     * @param generateHelp whether generated help should be exposed for this root
      * @param classPermission class-level fallback permission
      * @param classDescription class-level fallback description
      * @param classConditions class-level root conditions
@@ -173,7 +239,9 @@ public class CommandParser {
      */
     private CommandDescriptor buildMethodRootDescriptor(
             Method method,
-            RootCommand rootCommand,
+            String[] names,
+            boolean hidden,
+            boolean generateHelp,
             Permission classPermission,
             Description classDescription,
             Conditions classConditions,
@@ -190,15 +258,20 @@ public class CommandParser {
                 : (classDescription != null ? classDescription.value() : null);
 
         CommandDescriptor descriptor = new CommandDescriptor(
-                rootCommand.names(),
+                names,
                 permission,
                 description,
-                rootCommand.hidden(),
+                hidden,
                 instance,
-                rootCommand.generateHelp(),
+                generateHelp,
                 CommandConditionExpressionNormalizer.normalize(classConditions)
         );
-        descriptor.setDefaultMethod(AnnotatedCommandHandlerParser.parseDefaultHandler(method, rootCommand, instance.getClass()));
+        descriptor.setDefaultMethod(AnnotatedCommandHandlerParser.parseNamedHandler(
+                method,
+                names,
+                hidden,
+                instance.getClass()
+        ));
         return descriptor;
     }
 
@@ -267,27 +340,101 @@ public class CommandParser {
     private void addRoot(
             List<CommandDescriptor> roots,
             Map<String, CommandDescriptor> rootsByAlias,
-            CommandDescriptor root
+            CommandDescriptor root,
+            Class<?> holderClass
     ) {
         roots.add(root);
         for (String name : root.getNames()) {
             String key = name.toLowerCase(Locale.ROOT);
             CommandDescriptor previous = rootsByAlias.put(key, root);
             if (previous != null && previous != root) {
-                throw new DuplicateCommandException("Duplicate root command alias detected: " + name);
+                throw new DuplicateCommandException(
+                        "Duplicate root command alias '" + name + "' while parsing holder " + holderClass.getName()
+                                + ". Existing aliases=" + Arrays.toString(previous.getNames())
+                                + ", incoming aliases=" + Arrays.toString(root.getNames()) + "."
+                );
             }
         }
+    }
+
+    private void attachImplicitClassDefaultMethodIfPresent(
+            CommandDescriptor classRoot,
+            RootCommand classRootCommand,
+            Method[] declaredMethods,
+            Class<?> holderClass
+    ) {
+        List<Method> candidates = new ArrayList<>();
+        for (Method method : declaredMethods) {
+            if (!isImplicitClassDefaultCandidate(method)) {
+                continue;
+            }
+            candidates.add(method);
+        }
+
+        if (candidates.isEmpty()) {
+            return;
+        }
+
+        if (candidates.size() > 1) {
+            StringBuilder names = new StringBuilder();
+            for (int i = 0; i < candidates.size(); i++) {
+                if (i > 0) {
+                    names.append(", ");
+                }
+                names.append(candidates.get(i).getName());
+            }
+            throw new IllegalArgumentException(
+                    "Ambiguous default root handler candidates for class-level root in " + holderClass.getName()
+                            + ": " + names + ". Annotate one method with @RootCommand to make intent explicit."
+            );
+        }
+
+        Method candidate = candidates.get(0);
+        classRoot.setDefaultMethod(AnnotatedCommandHandlerParser.parseNamedHandler(
+                candidate,
+                classRootCommand.names(),
+                classRootCommand.hidden(),
+                holderClass
+        ));
+    }
+
+    private static boolean isImplicitClassDefaultCandidate(Method method) {
+        if (method.getAnnotation(RootCommand.class) != null
+                || method.getAnnotation(Subcommand.class) != null
+                || method.getAnnotation(Shortcut.class) != null
+                || method.isSynthetic()
+                || method.isBridge()
+                || Modifier.isStatic(method.getModifiers())) {
+            return false;
+        }
+
+        if (method.getAnnotation(Permission.class) != null
+                || method.getAnnotation(Description.class) != null
+                || method.getAnnotation(Conditions.class) != null) {
+            return true;
+        }
+
+        for (Parameter parameter : method.getParameters()) {
+            if (parameter.getAnnotation(Sender.class) != null
+                    || parameter.getAnnotation(Arg.class) != null
+                    || CommandContext.class.isAssignableFrom(parameter.getType())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
      * Resolves which root owns a parsed subcommand binding.
      *
      * <p>Resolution order:
-     * explicit parent alias, single-root implicit ownership, otherwise mismatch error.
+     * explicit parent alias, single primary-root implicit ownership, single-root implicit ownership, otherwise mismatch error.
      *
      * @param parent declared parent alias from {@code @Subcommand}
      * @param roots parsed roots in declaration order
      * @param rootsByAlias root lookup index
+     * @param primaryRoots parsed class/method primary roots (excludes shortcuts)
      * @param holderClass declaring holder class for diagnostics
      * @return resolved owning root descriptor
      */
@@ -295,6 +442,7 @@ public class CommandParser {
             String parent,
             List<CommandDescriptor> roots,
             Map<String, CommandDescriptor> rootsByAlias,
+            List<CommandDescriptor> primaryRoots,
             Class<?> holderClass
     ) {
         if (parent != null && !parent.trim().isEmpty()) {
@@ -305,6 +453,10 @@ public class CommandParser {
                 );
             }
             return descriptor;
+        }
+
+        if (primaryRoots.size() == 1) {
+            return primaryRoots.get(0);
         }
 
         if (roots.size() == 1) {

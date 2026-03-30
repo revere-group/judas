@@ -45,6 +45,24 @@ public final class AnnotatedCommandHandlerParser {
     }
 
     /**
+     * Parses a handler with explicit exposed aliases, used by synthetic root shortcuts.
+     *
+     * @param method reflective method reference
+     * @param names exposed aliases for this handler
+     * @param hidden whether this handler is hidden from generic help output
+     * @param ownerType declaring holder type
+     * @return immutable method descriptor
+     */
+    public static CommandMethodDescriptor parseNamedHandler(
+            Method method,
+            String[] names,
+            boolean hidden,
+            Class<?> ownerType
+    ) {
+        return parse(method, names, hidden, ownerType);
+    }
+
+    /**
      * Parses shared method metadata for both default and subcommand handlers.
      *
      * @param method handler method

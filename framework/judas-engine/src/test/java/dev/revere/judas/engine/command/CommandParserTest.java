@@ -12,12 +12,14 @@ import dev.revere.judas.api.annotation.Optional;
 import dev.revere.judas.api.annotation.Permission;
 import dev.revere.judas.api.annotation.Range;
 import dev.revere.judas.api.annotation.Regex;
+import dev.revere.judas.api.annotation.Shortcut;
 import dev.revere.judas.api.annotation.Subcommand;
 import dev.revere.judas.engine.command.metadata.CommandParser;
 import dev.revere.judas.model.command.BaseCommand;
 import dev.revere.judas.model.command.CommandDescriptor;
 import dev.revere.judas.model.command.CommandMethodDescriptor;
 import dev.revere.judas.model.command.ParameterDescriptor;
+import dev.revere.judas.model.exception.DuplicateCommandException;
 import dev.revere.judas.model.exception.SubcommandShortcutAliasConflictException;
 import org.junit.Test;
 
@@ -27,6 +29,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class CommandParserTest {
 
@@ -93,10 +96,50 @@ public class CommandParserTest {
         assertEquals("report.status", shortcut.getDefaultMethod().getPermission());
     }
 
+    @Test
+    public void parsesSubcommandShortcutRootUsingShortcutAnnotationWithoutExplicitParent() {
+        CommandParser parser = new CommandParser();
+        List<CommandDescriptor> roots = parser.parseAll(new ShortcutAnnotationHolder());
+
+        assertEquals(2, roots.size());
+
+        CommandDescriptor arena = findRoot(roots, "arena");
+        CommandDescriptor shortcut = findRoot(roots, "av");
+
+        assertEquals(1, arena.getSubcommands().size());
+        assertArrayEquals(new String[]{"view"}, arena.getSubcommands().get(0).getNames());
+        assertEquals(0, shortcut.getSubcommands().size());
+        assertEquals("arena.view", shortcut.getDefaultMethod().getPermission());
+    }
+
     @Test(expected = SubcommandShortcutAliasConflictException.class)
     public void failsWhenShortcutAliasCollidesWithPrimaryAlias() {
         CommandParser parser = new CommandParser();
         parser.parseAll(new ShortcutCollisionHolder());
+    }
+
+    @Test(expected = SubcommandShortcutAliasConflictException.class)
+    public void failsWhenShortcutAliasCollidesWithMethodPrimaryAliasDeclaredLater() {
+        CommandParser parser = new CommandParser();
+        parser.parseAll(new ShortcutCollisionMethodPrimaryHolder());
+    }
+
+    @Test(expected = SubcommandShortcutAliasConflictException.class)
+    public void failsWhenShortcutAnnotationAliasCollidesWithPrimaryAlias() {
+        CommandParser parser = new CommandParser();
+        parser.parseAll(new ShortcutAnnotationCollisionHolder());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void failsWhenShortcutAnnotationIsUsedWithoutSubcommand() {
+        CommandParser parser = new CommandParser();
+        parser.parseAll(new ShortcutWithoutSubcommandHolder());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void failsWhenShortcutAndRootCommandAreBothDeclaredOnSameMethod() {
+        CommandParser parser = new CommandParser();
+        parser.parseAll(new ShortcutAndRootOnSameMethodHolder());
     }
 
     @Test
@@ -131,6 +174,49 @@ public class CommandParserTest {
         assertTrue(numeric.getConditions().stream().anyMatch(s -> s.startsWith("max:")));
         assertTrue(text.getConditions().stream().anyMatch(s -> s.startsWith("length:")));
         assertTrue(text.getConditions().stream().anyMatch(s -> s.startsWith("regex:")));
+    }
+
+    @Test
+    public void infersDefaultMethodForClassLevelRootFromSingleUnannotatedCommandLikeMethod() {
+        CommandParser parser = new CommandParser();
+        CommandDescriptor descriptor = parser.parse(new ImplicitDefaultRootHolder());
+
+        assertEquals("onArenaRoot", descriptor.getDefaultMethod().getMethod().getName());
+        assertEquals(1, descriptor.getSubcommands().size());
+        assertArrayEquals(new String[]{"view"}, descriptor.getSubcommands().get(0).getNames());
+    }
+
+    @Test
+    public void ignoresHelperMethodsWhenInferringImplicitClassDefault() {
+        CommandParser parser = new CommandParser();
+        CommandDescriptor descriptor = parser.parse(new ImplicitDefaultWithHelperHolder());
+        assertEquals("onArenaRoot", descriptor.getDefaultMethod().getMethod().getName());
+    }
+
+    @Test
+    public void failsWhenMultipleImplicitClassDefaultCandidatesExist() {
+        CommandParser parser = new CommandParser();
+        try {
+            parser.parse(new AmbiguousImplicitDefaultHolder());
+            fail("Expected ambiguity failure for implicit class default handler.");
+        } catch (IllegalArgumentException exception) {
+            assertTrue(exception.getMessage().contains("Ambiguous default root handler"));
+            assertTrue(exception.getMessage().contains("primary"));
+            assertTrue(exception.getMessage().contains("secondary"));
+        }
+    }
+
+    @Test
+    public void duplicateRootAliasErrorContainsExistingAndIncomingDetails() {
+        CommandParser parser = new CommandParser();
+        try {
+            parser.parseAll(new DuplicateAliasDetailHolder());
+            fail("Expected duplicate root alias failure.");
+        } catch (DuplicateCommandException exception) {
+            assertTrue(exception.getMessage().contains("Duplicate root command alias 'arena'"));
+            assertTrue(exception.getMessage().contains("Existing aliases="));
+            assertTrue(exception.getMessage().contains("incoming aliases="));
+        }
     }
 
     private CommandDescriptor findRoot(List<CommandDescriptor> roots, String alias) {
@@ -190,6 +276,15 @@ public class CommandParserTest {
         }
     }
 
+    @RootCommand(names = {"arena"})
+    private static class ShortcutAnnotationHolder extends BaseCommand {
+        @Subcommand(names = {"view"})
+        @Shortcut(names = {"av"})
+        @Permission("arena.view")
+        public void viewShortcut() {
+        }
+    }
+
     private static class ShortcutCollisionHolder extends BaseCommand {
         @RootCommand(names = {"report"})
         public void reportRoot() {
@@ -197,6 +292,41 @@ public class CommandParserTest {
 
         @Subcommand(names = {"status"}, parent = "report")
         @RootCommand(names = {"report"})
+        public void invalidShortcut() {
+        }
+    }
+
+    private static class ShortcutCollisionMethodPrimaryHolder extends BaseCommand {
+        @Subcommand(names = {"status"}, parent = "report")
+        @RootCommand(names = {"report"})
+        public void invalidShortcut() {
+        }
+
+        @RootCommand(names = {"report"})
+        public void reportRoot() {
+        }
+    }
+
+    @RootCommand(names = {"arena"})
+    private static class ShortcutAnnotationCollisionHolder extends BaseCommand {
+        @Subcommand(names = {"view"})
+        @Shortcut(names = {"arena"})
+        public void invalidShortcut() {
+        }
+    }
+
+    @RootCommand(names = {"arena"})
+    private static class ShortcutWithoutSubcommandHolder extends BaseCommand {
+        @Shortcut(names = {"av"})
+        public void invalidShortcut() {
+        }
+    }
+
+    @RootCommand(names = {"arena"})
+    private static class ShortcutAndRootOnSameMethodHolder extends BaseCommand {
+        @Subcommand(names = {"view"})
+        @Shortcut(names = {"av"})
+        @RootCommand(names = {"arena-view"})
         public void invalidShortcut() {
         }
     }
@@ -224,6 +354,44 @@ public class CommandParserTest {
                 @Arg("amount") @Range(min = 1, max = 10) @Min(1) @Max(10) int amount,
                 @Arg("code") @Length(min = 3, max = 8) @Regex("^[a-z]+$") String code
         ) {
+        }
+    }
+
+    @RootCommand(names = {"arena"})
+    private static class ImplicitDefaultRootHolder extends BaseCommand {
+        public void onArenaRoot(@dev.revere.judas.api.annotation.Sender Object sender) {
+        }
+
+        @Subcommand(names = {"view"})
+        public void view(@Arg("id") String id) {
+        }
+    }
+
+    @RootCommand(names = {"arena"})
+    private static class ImplicitDefaultWithHelperHolder extends BaseCommand {
+        private void helperOnly() {
+        }
+
+        public void onArenaRoot(@dev.revere.judas.api.annotation.Sender Object sender) {
+        }
+    }
+
+    @RootCommand(names = {"arena"})
+    private static class AmbiguousImplicitDefaultHolder extends BaseCommand {
+        public void primary(@dev.revere.judas.api.annotation.Sender Object sender) {
+        }
+
+        public void secondary(@dev.revere.judas.api.annotation.Sender Object sender) {
+        }
+    }
+
+    private static class DuplicateAliasDetailHolder extends BaseCommand {
+        @RootCommand(names = {"arena"})
+        public void first() {
+        }
+
+        @RootCommand(names = {"arena"})
+        public void second() {
         }
     }
 }
