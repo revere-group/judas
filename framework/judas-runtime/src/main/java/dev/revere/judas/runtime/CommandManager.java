@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
@@ -231,10 +232,20 @@ public abstract class CommandManager implements CommandExecutionServices {
             String key = name.toLowerCase(Locale.ROOT);
             CommandDescriptor previous = this.commands.put(key, descriptor);
             if (previous != null && previous != descriptor) {
-                throw new DuplicateCommandException("Command name '" + name + "' is already registered.");
+                throw new DuplicateCommandException(
+                        "Command alias '" + name + "' is already registered during startup. Existing aliases="
+                                + Arrays.toString(previous.getNames()) + " (source=" + sourceOf(previous) + ")"
+                                + ", incoming aliases=" + Arrays.toString(descriptor.getNames())
+                                + " (source=" + sourceOf(descriptor) + ")."
+                );
             }
         }
         this.registerPlatform(descriptor);
+    }
+
+    private static String sourceOf(CommandDescriptor descriptor) {
+        Object instance = descriptor.getInstance();
+        return instance == null ? "<unknown>" : instance.getClass().getName();
     }
 
     /**

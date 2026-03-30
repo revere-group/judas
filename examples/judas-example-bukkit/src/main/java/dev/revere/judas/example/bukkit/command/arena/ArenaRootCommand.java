@@ -1,6 +1,7 @@
 package dev.revere.judas.example.bukkit.command.arena;
 
 import dev.revere.judas.api.annotation.RootCommand;
+import dev.revere.judas.api.annotation.Shortcut;
 import dev.revere.judas.api.annotation.Description;
 import dev.revere.judas.api.annotation.Arg;
 import dev.revere.judas.api.annotation.Sender;
@@ -32,8 +33,8 @@ public final class ArenaRootCommand extends BaseCommand {
         sender.sendMessage("Use /arena help for arena commands.");
     }
 
-    @Subcommand(names = {"view"}, parent = "arena")
-    @RootCommand(names = {"av"})
+    @Subcommand(names = {"view"})
+    @Shortcut(names = {"av"})
     @Description("Shortcut root alias for /arena view <arena>.")
     public void viewShortcut(
             @Sender Player sender,

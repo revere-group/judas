@@ -78,6 +78,10 @@ Root name(s), visibility, and optional generated `help` subcommand.
 public final class ArenaCommand extends BaseCommand { }
 ```
 
+When `@RootCommand` is declared on the class, one unannotated command-like method (for example, one with
+`@Sender`, `@Arg`, or `CommandContext`) is inferred as the default root handler. If more than one such
+candidate exists, startup fails with an ambiguity error so registration stays deterministic.
+
 Or on a single default handler method when the class has no class-level root:
 
 ```java
@@ -96,7 +100,28 @@ Declares a method as a subcommand under a root.
 public void create(@Sender Player sender) { }
 ```
 
-`parent` ties the method to a root when the holder exposes multiple roots; otherwise it can be omitted for implicit single-root wiring.
+`parent` ties the method to a root when you want explicit ownership. If the holder has exactly one
+primary root (class-level `@RootCommand` or one method-level root handler), `parent` can be omitted
+and the subcommand is attached there automatically.
+
+### `@Shortcut`
+
+Declares shortcut root aliases for a subcommand handler method.
+
+**Target:** `METHOD`
+
+```java
+@RootCommand(names = {"arena", "a"})
+public final class ArenaCommand extends BaseCommand {
+    @Subcommand(names = {"view"})
+    @Shortcut(names = {"av"})
+    public void view(@Sender Player sender, @Arg("arena") String arenaId) { }
+}
+```
+
+The method stays a subcommand (`/arena view`) and is also invokable via shortcut root aliases
+(`/av` in this example). `@Shortcut` replaces the older `@RootCommand`+`@Subcommand` combo on the
+same method and avoids root/subcommand ownership ambiguity.
 
 ### `@Description` / `@Permission`
 

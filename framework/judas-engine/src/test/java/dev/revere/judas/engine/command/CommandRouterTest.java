@@ -351,6 +351,10 @@ public class CommandRouterTest {
 
         TestServices() {
             BuiltinParameterResolvers.registerAll(this.registry);
+            this.registerResolver(String[].class, context -> {
+                String input = ArgumentTokenReader.requireNext(context);
+                return input.split(",");
+            });
         }
 
         <T> void registerResolver(Class<T> type, ParameterResolver<T> resolver) {

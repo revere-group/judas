@@ -33,7 +33,6 @@ public final class BuiltinParameterResolvers {
                 return new ArrayList<>();
             }
         });
-
         registry.register(Integer.class, BuiltinParameterResolvers::parseIntToken);
         registry.register(int.class, BuiltinParameterResolvers::parseIntToken);
         registry.register(Double.class, BuiltinParameterResolvers::parseDoubleToken);
